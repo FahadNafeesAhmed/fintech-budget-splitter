@@ -42,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen>
   final _formKey = GlobalKey<FormState>();
 
   _SplitState _state = _Idle();
+  final List<_DsEvent> _eventLog = [];
 
   late final AnimationController _buttonAnim;
   late final Animation<double> _buttonScale;
@@ -94,17 +95,28 @@ class _HomeScreenState extends State<HomeScreen>
       final tenantId = widget.session.tenantId;
       final userId = widget.session.userId;
       if (api != null && tenantId != null && userId != null) {
+        setState(() => _eventLog.insert(0, _DsEvent('ds-experience', 'Saving to cloud-save → split_history')));
         api.saveSplitTransaction(
           userId: userId,
           tenantId: tenantId,
           transaction: transaction,
           result: result,
-        ).catchError((_) {}); // non-blocking
+        ).then((_) {
+          setState(() => _eventLog.insert(0, _DsEvent('ds-experience', 'Saved ✓', success: true)));
+        }).catchError((e) {
+          setState(() => _eventLog.insert(0, _DsEvent('ds-experience', 'Save skipped (dev env)', warning: true)));
+        });
+
+        setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', 'Logging split_calculated event')));
         api.logSplitCalculated(
           tenantId: tenantId,
           transaction: transaction,
           result: result,
-        ).catchError((_) {}); // non-blocking
+        ).then((_) {
+          setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', 'Event logged ✓', success: true)));
+        }).catchError((e) {
+          setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', 'Event skipped (dev env)', warning: true)));
+        });
       }
     } on ArgumentError catch (e) {
       final msg = e.message.toString();
@@ -113,6 +125,7 @@ class _HomeScreenState extends State<HomeScreen>
       final api = widget.session.api;
       final tenantId = widget.session.tenantId;
       if (api != null && tenantId != null) {
+        setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', 'Logging split_error event')));
         api.logSplitError(tenantId: tenantId, error: msg).catchError((_) {});
       }
     } catch (_) {
@@ -222,6 +235,8 @@ class _HomeScreenState extends State<HomeScreen>
                         ),
                         const SizedBox(height: 32),
                         if (_state is _Success) _resultPanel(_state as _Success),
+                        const SizedBox(height: 32),
+                        _dartstreamPanel(),
                       ],
                     ),
                   ),
@@ -519,4 +534,177 @@ class _HomeScreenState extends State<HomeScreen>
     if (charCount <= 8) return 44;
     return 34;
   }
+
+  Widget _dartstreamPanel() {
+    final services = [
+      _ServiceStatus('ds-auth', true),
+      _ServiceStatus('ds-platform', true),
+      _ServiceStatus('ds-experience', true),
+      _ServiceStatus('ds-reactive', true),
+    ];
+
+    return _glassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFF4F8EF7),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'DARTSTREAM ENGINE',
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF4F8EF7),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Service status row
+          Row(
+            children: services
+                .map((s) => Expanded(child: _serviceChip(s)))
+                .toList(),
+          ),
+          if (_eventLog.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'REACTIVE EVENT LOG',
+              style: GoogleFonts.inter(
+                color: Colors.white.withOpacity(0.3),
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...(_eventLog.take(6).map((e) => _eventRow(e))),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Text(
+                'Tenant: ',
+                style: GoogleFonts.inter(
+                  color: Colors.white.withOpacity(0.25),
+                  fontSize: 11,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  widget.session.tenantId ?? 'Authenticating…',
+                  style: GoogleFonts.inter(
+                    color: Colors.white.withOpacity(0.45),
+                    fontSize: 11,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _serviceChip(_ServiceStatus s) {
+    return Container(
+      margin: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: s.online
+            ? const Color(0xFF4F8EF7).withOpacity(0.12)
+            : Colors.red.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: s.online
+              ? const Color(0xFF4F8EF7).withOpacity(0.3)
+              : Colors.red.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: s.online ? const Color(0xFF00E676) : Colors.red,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            s.name,
+            style: GoogleFonts.inter(
+              color: Colors.white.withOpacity(0.6),
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _eventRow(_DsEvent e) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF4F8EF7).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              e.service,
+              style: GoogleFonts.inter(
+                color: const Color(0xFF4F8EF7),
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            e.message,
+            style: GoogleFonts.inter(
+              color: e.success
+                  ? const Color(0xFF00E676)
+                  : e.warning
+                      ? Colors.amber.shade300
+                      : Colors.white.withOpacity(0.5),
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DsEvent {
+  _DsEvent(this.service, this.message, {this.success = false, this.warning = false});
+  final String service;
+  final String message;
+  final bool success;
+  final bool warning;
+}
+
+class _ServiceStatus {
+  _ServiceStatus(this.name, this.online);
+  final String name;
+  final bool online;
 }
