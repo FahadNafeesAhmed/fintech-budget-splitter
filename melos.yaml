@@ -1,0 +1,20 @@
+name: fintech_budget_splitter
+repository: https://github.com/your-org/fintech-budget-splitter
+
+packages:
+  - packages/**
+  - backend
+  - frontend
+
+command:
+  bootstrap:
+    usePubspecOverrides: true
+
+scripts:
+  test:
+    run: melos exec --dir-exists=test -- flutter test
+    description: Run all tests across every package
+
+  analyze:
+    run: melos exec -- dart analyze .
+    description: Run static analysis on all packages
