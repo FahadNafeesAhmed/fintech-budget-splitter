@@ -29,31 +29,11 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>Budget Splitter</title>
+  <title>Budget Splitter — DartStream</title>
   <link rel="manifest" href="manifest.json">
-
-  <!-- Firebase JS SDK -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
-    import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyBUDpfDadtLDZ97ezzNWkk5PWheGFV2wvc",
-      authDomain: "fintech-budget-splitter.firebaseapp.com",
-      projectId: "fintech-budget-splitter",
-      storageBucket: "fintech-budget-splitter.firebasestorage.app",
-      messagingSenderId: "641788475041",
-      appId: "1:641788475041:web:588a3eabaca172896262e0",
-      measurementId: "G-C6JYZ4P7KE"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    getAnalytics(app);
-    getAuth(app);
-    getFirestore(app);
-  </script>
+  <!-- Auth handled via Firebase Identity Toolkit REST API (no JS SDK needed).
+       DartStream pattern: browser obtains ID token via REST, passes Bearer
+       token to DartStream backend which verifies with admin SDK server-side. -->
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

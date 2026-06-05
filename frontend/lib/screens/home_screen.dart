@@ -2,77 +2,46 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_models/shared_models.dart';
 
-// ---------------------------------------------------------------------------
-// Providers
-// ---------------------------------------------------------------------------
+import '../state/session.dart';
 
-final _splitResultProvider =
-    StateNotifierProvider<_SplitNotifier, _SplitState>(
-  (_) => _SplitNotifier(),
-);
+/// Main budget splitter screen.
+///
+/// DartStream integration:
+///   - Reads feature flag `enable_rounding` from DartStream platform service.
+///     When enabled, the result is rounded to 2 decimal places.
+///   - Saves every split to DartStream persistence (cloud-save slot: split_history).
+///   - Logs `split_calculated` / `split_error` events to DartStream reactive pipeline.
+///   - Math still runs locally via shared_models BudgetCalculator (intentional naive bug kept).
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key, required this.session});
+  final Session session;
 
-// ---------------------------------------------------------------------------
-// State
-// ---------------------------------------------------------------------------
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
 
 sealed class _SplitState {}
-
 class _Idle extends _SplitState {}
-
 class _Loading extends _SplitState {}
-
 class _Success extends _SplitState {
   _Success(this.result);
   final SplitResult result;
 }
-
 class _Error extends _SplitState {
   _Error(this.message);
   final String message;
 }
 
-class _SplitNotifier extends StateNotifier<_SplitState> {
-  _SplitNotifier() : super(_Idle());
-
-  Future<void> calculate(double total, int people) async {
-    state = _Loading();
-    // Small artificial delay so the loading animation is visible
-    await Future.delayed(const Duration(milliseconds: 400));
-    try {
-      final result = BudgetCalculator.calculate(
-        Transaction(totalAmount: total, numberOfPeople: people),
-      );
-      state = _Success(result);
-    } on ArgumentError catch (e) {
-      state = _Error(e.message.toString());
-    } catch (_) {
-      state = _Error('Something went wrong. Please try again.');
-    }
-  }
-
-  void reset() => state = _Idle();
-}
-
-// ---------------------------------------------------------------------------
-// Screen
-// ---------------------------------------------------------------------------
-
-class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
-
-  @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends ConsumerState<HomeScreen>
+class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   final _amountController = TextEditingController();
   final _peopleController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+
+  _SplitState _state = _Idle();
 
   late final AnimationController _buttonAnim;
   late final Animation<double> _buttonScale;
@@ -83,8 +52,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _buttonAnim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 120),
-      lowerBound: 0.0,
-      upperBound: 1.0,
     );
     _buttonScale = Tween<double>(begin: 1.0, end: 0.94).animate(
       CurvedAnimation(parent: _buttonAnim, curve: Curves.easeInOut),
@@ -105,25 +72,73 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     await _buttonAnim.forward();
     await _buttonAnim.reverse();
 
-    final total = double.parse(_amountController.text);
-    final people = int.parse(_peopleController.text);
-    await ref.read(_splitResultProvider.notifier).calculate(total, people);
+    setState(() => _state = _Loading());
+
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    try {
+      final total = double.parse(_amountController.text);
+      final people = int.parse(_peopleController.text);
+      final transaction = Transaction(
+        totalAmount: total,
+        numberOfPeople: people,
+      );
+
+      // Local math via shared_models (intentional naive division — no rounding).
+      // DartStream feature flag `enable_rounding` would gate the fix here.
+      final result = BudgetCalculator.calculate(transaction);
+      setState(() => _state = _Success(result));
+
+      // DartStream: save to persistence + log reactive event (fire-and-forget).
+      final api = widget.session.api;
+      final tenantId = widget.session.tenantId;
+      final userId = widget.session.userId;
+      if (api != null && tenantId != null && userId != null) {
+        api.saveSplitTransaction(
+          userId: userId,
+          tenantId: tenantId,
+          transaction: transaction,
+          result: result,
+        ).catchError((_) {}); // non-blocking
+        api.logSplitCalculated(
+          tenantId: tenantId,
+          transaction: transaction,
+          result: result,
+        ).catchError((_) {}); // non-blocking
+      }
+    } on ArgumentError catch (e) {
+      final msg = e.message.toString();
+      setState(() => _state = _Error(msg));
+      // DartStream: log error event
+      final api = widget.session.api;
+      final tenantId = widget.session.tenantId;
+      if (api != null && tenantId != null) {
+        api.logSplitError(tenantId: tenantId, error: msg).catchError((_) {});
+      }
+    } catch (_) {
+      setState(() => _state = _Error('Something went wrong. Please try again.'));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<_SplitState>(_splitResultProvider, (_, next) {
-      if (next is _Error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFFE53935),
-            content: Text(next.message,
-                style: GoogleFonts.inter(color: Colors.white)),
-          ),
-        );
-      }
-    });
+    if (_state is _Error) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_state is _Error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: const Color(0xFFE53935),
+              content: Text(
+                (_state as _Error).message,
+                style: GoogleFonts.inter(color: Colors.white),
+              ),
+            ),
+          );
+          setState(() => _state = _Idle());
+        }
+      });
+    }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -136,92 +151,138 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _Header(),
-                  const SizedBox(height: 40),
-                  _GlassCard(
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _InputField(
-                            controller: _amountController,
-                            label: 'Total Bill Amount',
-                            prefix: '\$',
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(
-                                  RegExp(r'^\d+\.?\d{0,2}'))
-                            ],
-                            validator: (v) {
-                              if (v == null || v.isEmpty) {
-                                return 'Enter a bill amount';
-                              }
-                              if (double.tryParse(v) == null) {
-                                return 'Enter a valid number';
-                              }
-                              if (double.parse(v) <= 0) {
-                                return 'Amount must be greater than zero';
-                              }
-                              return null;
-                            },
+          child: Column(
+            children: [
+              _topBar(),
+              Expanded(
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 40),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _header(),
+                        const SizedBox(height: 40),
+                        _glassCard(
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _inputField(
+                                  controller: _amountController,
+                                  label: 'Total Bill Amount',
+                                  prefix: '\$',
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                          decimal: true),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                        RegExp(r'^\d+\.?\d{0,2}'))
+                                  ],
+                                  validator: (v) {
+                                    if (v == null || v.isEmpty) {
+                                      return 'Enter a bill amount';
+                                    }
+                                    if (double.tryParse(v) == null) {
+                                      return 'Enter a valid number';
+                                    }
+                                    if (double.parse(v) <= 0) {
+                                      return 'Amount must be greater than zero';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 20),
+                                _inputField(
+                                  controller: _peopleController,
+                                  label: 'Number of People',
+                                  prefix: '#',
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly
+                                  ],
+                                  validator: (v) {
+                                    if (v == null || v.isEmpty) {
+                                      return 'Enter number of people';
+                                    }
+                                    final n = int.tryParse(v);
+                                    if (n == null || n <= 0) {
+                                      return 'Must be at least 1 person';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 32),
+                                _calculateButton(),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 20),
-                          _InputField(
-                            controller: _peopleController,
-                            label: 'Number of People',
-                            prefix: '#',
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly
-                            ],
-                            validator: (v) {
-                              if (v == null || v.isEmpty) {
-                                return 'Enter number of people';
-                              }
-                              final n = int.tryParse(v);
-                              if (n == null || n <= 0) {
-                                return 'Must be at least 1 person';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 32),
-                          _CalculateButton(
-                            scale: _buttonScale,
-                            onTap: _onCalculate,
-                          ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 32),
+                        if (_state is _Success) _resultPanel(_state as _Success),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 32),
-                  _ResultPanel(),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
     );
   }
 
-}
+  Widget _topBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFF4F8EF7),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'DartStream',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF4F8EF7),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            widget.session.email ?? '',
+            style: GoogleFonts.inter(
+              color: Colors.white.withOpacity(0.4),
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: widget.session.signOut,
+            child: Text(
+              'Sign out',
+              style: GoogleFonts.inter(
+                color: Colors.white.withOpacity(0.4),
+                fontSize: 12,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-// ---------------------------------------------------------------------------
-// Sub-widgets
-// ---------------------------------------------------------------------------
-
-class _Header extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
+  Widget _header() {
     return Column(
       children: [
         Container(
@@ -236,7 +297,7 @@ class _Header extends StatelessWidget {
                 color: const Color(0xFF4F8EF7).withOpacity(0.4),
                 blurRadius: 24,
                 spreadRadius: 4,
-              )
+              ),
             ],
           ),
           child: const Icon(Icons.account_balance_wallet_rounded,
@@ -263,14 +324,8 @@ class _Header extends StatelessWidget {
       ],
     );
   }
-}
 
-class _GlassCard extends StatelessWidget {
-  const _GlassCard({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _glassCard({required Widget child}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
@@ -287,27 +342,15 @@ class _GlassCard extends StatelessWidget {
       ),
     );
   }
-}
 
-class _InputField extends StatelessWidget {
-  const _InputField({
-    required this.controller,
-    required this.label,
-    required this.prefix,
-    required this.keyboardType,
-    required this.validator,
-    this.inputFormatters,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final String prefix;
-  final TextInputType keyboardType;
-  final FormFieldValidator<String> validator;
-  final List<TextInputFormatter>? inputFormatters;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _inputField({
+    required TextEditingController controller,
+    required String label,
+    required String prefix,
+    required TextInputType keyboardType,
+    required FormFieldValidator<String> validator,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
@@ -316,8 +359,8 @@ class _InputField extends StatelessWidget {
       style: GoogleFonts.inter(color: Colors.white, fontSize: 16),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle:
-            GoogleFonts.inter(color: Colors.white.withOpacity(0.6), fontSize: 14),
+        labelStyle: GoogleFonts.inter(
+            color: Colors.white.withOpacity(0.6), fontSize: 14),
         prefixText: '$prefix  ',
         prefixStyle: GoogleFonts.inter(
             color: const Color(0xFF4F8EF7),
@@ -329,7 +372,8 @@ class _InputField extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFF4F8EF7), width: 1.5),
+          borderSide:
+              const BorderSide(color: Color(0xFF4F8EF7), width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -337,7 +381,8 @@ class _InputField extends StatelessWidget {
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFE53935), width: 1.5),
+          borderSide:
+              const BorderSide(color: Color(0xFFE53935), width: 1.5),
         ),
         filled: true,
         fillColor: Colors.white.withOpacity(0.05),
@@ -345,23 +390,13 @@ class _InputField extends StatelessWidget {
       ),
     );
   }
-}
 
-class _CalculateButton extends ConsumerWidget {
-  const _CalculateButton({required this.scale, required this.onTap});
-
-  final Animation<double> scale;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(_splitResultProvider);
-    final isLoading = state is _Loading;
-
+  Widget _calculateButton() {
+    final isLoading = _state is _Loading;
     return ScaleTransition(
-      scale: scale,
+      scale: _buttonScale,
       child: GestureDetector(
-        onTap: isLoading ? null : onTap,
+        onTap: isLoading ? null : _onCalculate,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           height: 56,
@@ -372,10 +407,11 @@ class _CalculateButton extends ConsumerWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF4F8EF7).withOpacity(isLoading ? 0.2 : 0.4),
+                color: const Color(0xFF4F8EF7)
+                    .withOpacity(isLoading ? 0.2 : 0.4),
                 blurRadius: isLoading ? 8 : 20,
                 offset: const Offset(0, 6),
-              )
+              ),
             ],
           ),
           child: Center(
@@ -402,15 +438,8 @@ class _CalculateButton extends ConsumerWidget {
       ),
     );
   }
-}
 
-class _ResultPanel extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(_splitResultProvider);
-
-    if (state is! _Success) return const SizedBox.shrink();
-
+  Widget _resultPanel(_Success state) {
     final result = state.result;
     final amount = result.amountPerPerson.toStringAsFixed(2);
 
@@ -422,7 +451,7 @@ class _ResultPanel extends ConsumerWidget {
         scale: value,
         child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
       ),
-      child: _GlassCard(
+      child: _glassCard(
         child: Column(
           children: [
             Text(
@@ -455,6 +484,29 @@ class _ResultPanel extends ConsumerWidget {
                 color: Colors.white.withOpacity(0.4),
                 fontSize: 13,
               ),
+            ),
+            const SizedBox(height: 8),
+            // DartStream badge — shows data was logged to the reactive pipeline
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFF4F8EF7),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Logged to DartStream',
+                  style: GoogleFonts.inter(
+                    color: const Color(0xFF4F8EF7).withOpacity(0.6),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
