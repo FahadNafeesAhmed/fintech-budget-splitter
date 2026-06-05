@@ -1,54 +1,48 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'firebase_options.dart';
-import 'providers/auth_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'state/session.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const ProviderScope(child: BudgetSplitterApp()));
+void main() {
+  runApp(const BudgetSplitterApp());
 }
 
-class BudgetSplitterApp extends ConsumerWidget {
+/// App entry point following the DartStream founder sample app pattern:
+///   - No firebase_core init — auth is handled via Identity Toolkit REST
+///   - Session is a ChangeNotifier passed through the widget tree
+///   - Routing is driven by session.status (no Riverpod, no StreamProvider)
+class BudgetSplitterApp extends StatefulWidget {
   const BudgetSplitterApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authStateProvider);
-
-    return MaterialApp(
-      title: 'Budget Splitter',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(useMaterial3: true),
-      home: authState.when(
-        loading: () => const _SplashScreen(),
-        error: (_, __) => const LoginScreen(),
-        data: (user) => user != null ? const HomeScreen() : const LoginScreen(),
-      ),
-    );
-  }
+  State<BudgetSplitterApp> createState() => _BudgetSplitterAppState();
 }
 
-class _SplashScreen extends StatelessWidget {
-  const _SplashScreen();
+class _BudgetSplitterAppState extends State<BudgetSplitterApp> {
+  final _session = Session();
+
+  @override
+  void initState() {
+    super.initState();
+    _session.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _session.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF0A0E1A), Color(0xFF0D1B3E), Color(0xFF091428)],
-        ),
-      ),
-      child: const Center(
-        child: CircularProgressIndicator(color: Color(0xFF4F8EF7)),
-      ),
+    return MaterialApp(
+      title: 'Budget Splitter — DartStream',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark(useMaterial3: true),
+      home: _session.isSignedIn
+          ? HomeScreen(session: _session)
+          : LoginScreen(session: _session),
     );
   }
 }
