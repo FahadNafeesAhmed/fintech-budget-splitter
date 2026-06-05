@@ -1,0 +1,29 @@
+name: frontend
+description: Flutter frontend for the FinTech Budget Splitter.
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  http: ^1.2.0
+  shared_models:
+    path: ../packages/shared_models
+  google_fonts: ^6.1.0
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  mockito: ^5.4.4
+  fake_cloud_firestore: ^3.0.3
+  build_runner: ^2.4.8
+
+flutter:
+  uses-material-design: true

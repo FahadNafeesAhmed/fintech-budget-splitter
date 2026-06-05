@@ -1,0 +1,16 @@
+name: backend
+description: Dart Frog backend for the FinTech Budget Splitter.
+version: 1.0.0
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  dart_frog: ^1.1.0
+  shared_models:
+    path: ../packages/shared_models
+
+dev_dependencies:
+  dart_frog_gen: ^1.1.0
+  lints: ^3.0.0
+  test: ^1.24.0
