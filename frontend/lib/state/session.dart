@@ -65,6 +65,18 @@ class Session extends ChangeNotifier {
 
   String _readable(Object e) {
     final s = e.toString();
+    // Browser-side network failure (most often CORS rejection from the
+    // DartStream backend, which only whitelists http://localhost:8080 on
+    // dev). Identity Toolkit calls succeed; the ds-auth POST is blocked.
+    if (s.contains('ClientException') &&
+        (s.contains('Failed to fetch') ||
+            s.contains('NetworkError') ||
+            s.contains('XMLHttpRequest'))) {
+      return 'Could not reach DartStream (CORS or network). '
+          'The dev backend only allows http://localhost:8080; '
+          'run with `flutter run -d chrome --web-port=8080`, or ask the '
+          'DartStream team to whitelist this origin.';
+    }
     if (s.contains('EMAIL_EXISTS')) {
       return 'An account with that email already exists — switch to Sign In.';
     }

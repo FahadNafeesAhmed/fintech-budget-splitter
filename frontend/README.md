@@ -28,8 +28,13 @@ Flutter web app wired to DartStream SaaS via the public
 
 ```bash
 flutter pub get
-flutter run -d chrome
+flutter run -d chrome --web-port=8080
 ```
+
+> ⚠️ The `--web-port=8080` flag is required: the DartStream dev backend's
+> CORS allowlist currently only contains `http://localhost:8080`. Without
+> it the browser blocks the ds-auth POST and the login banner shows
+> *"Could not reach DartStream (CORS or network)"*.
 
 The Firebase web API key is embedded in `lib/config.dart` and
 `web/index.html`. To point at a different Firebase project, override at
