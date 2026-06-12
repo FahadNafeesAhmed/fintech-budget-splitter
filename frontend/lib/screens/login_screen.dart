@@ -27,6 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  String? _clientError;
 
   @override
   void initState() {
@@ -62,9 +63,10 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     final error = _validate();
     if (error != null) {
-      setState(() {});
+      setState(() => _clientError = error);
       return;
     }
+    setState(() => _clientError = null);
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     if (_mode == _Mode.createAccount) {
@@ -77,10 +79,10 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final loading = widget.session.status == SessionStatus.signingIn;
-    final errorMsg = widget.session.status == SessionStatus.error
+    final serverError = widget.session.status == SessionStatus.error
         ? widget.session.errorMessage
         : null;
-    final validationError = _validate();
+    final errorMsg = _clientError ?? serverError;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
