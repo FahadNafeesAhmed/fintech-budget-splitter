@@ -33,25 +33,25 @@
   <link rel="manifest" href="manifest.json">
 
   <!-- Firebase Web SDK init for Analytics on the hosted site.
-       Firebase web API keys identify the project to Google's APIs and are
-       intended to be public — security is enforced by Firebase rules + the
-       authorized-domain list, not by hiding the key. -->
+       Per the dartstream_client README, we load the public Firebase
+       config from /__/firebase/init.json (auto-served by Firebase
+       Hosting) instead of committing it. Falls through silently when
+       the JSON isn't reachable (local dev). -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-analytics.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyBUDpfDadtLDZ97ezzNWkk5PWheGFV2wvc",
-      authDomain: "fintech-budget-splitter.firebaseapp.com",
-      projectId: "fintech-budget-splitter",
-      storageBucket: "fintech-budget-splitter.firebasestorage.app",
-      messagingSenderId: "641788475041",
-      appId: "1:641788475041:web:588a3eabaca172896262e0",
-      measurementId: "G-C6JYZ4P7KE"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    getAnalytics(app);
+    try {
+      const resp = await fetch("/__/firebase/init.json");
+      if (resp.ok) {
+        const config = await resp.json();
+        const app = initializeApp(config);
+        getAnalytics(app);
+      }
+    } catch (_) {
+      // /__/firebase/init.json is only served on Firebase Hosting.
+      // Skipping analytics is fine locally.
+    }
   </script>
 </head>
 <body>

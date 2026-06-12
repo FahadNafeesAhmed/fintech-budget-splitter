@@ -8,14 +8,16 @@
 /// Pass it via:
 ///   flutter run -d chrome --dart-define=FIREBASE_API_KEY=$FIREBASE_API_KEY
 class AppConfig {
-  /// Firebase web API key. Web API keys identify the project to Google's
-  /// APIs and are intended to be public — security is enforced by Firebase
-  /// rules + the authorized-domain list, not by hiding the key. The
-  /// `--dart-define=FIREBASE_API_KEY=...` override still wins when provided.
-  static const _defaultFirebaseApiKey = 'AIzaSyBUDpfDadtLDZ97ezzNWkk5PWheGFV2wvc';
+  /// Local-dev fallback Firebase web API key. When the app is served from
+  /// Firebase Hosting it prefers `/__/firebase/init.json` (auto-served by
+  /// the Hosting origin), per the dartstream_client README. Web API keys
+  /// identify the project to Google's APIs and are intended to be public —
+  /// security is enforced by Firebase rules + the authorized-domain list.
+  /// The `--dart-define=FIREBASE_API_KEY=...` override still wins.
+  static const _fallbackFirebaseApiKey = 'AIzaSyBUDpfDadtLDZ97ezzNWkk5PWheGFV2wvc';
   static const firebaseApiKey = String.fromEnvironment(
     'FIREBASE_API_KEY',
-    defaultValue: _defaultFirebaseApiKey,
+    defaultValue: _fallbackFirebaseApiKey,
   );
 
   /// Whether a key was actually injected; the login flow surfaces this.
