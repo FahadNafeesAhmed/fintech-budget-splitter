@@ -1,8 +1,6 @@
 import 'package:dartstream_client/dartstream_client.dart';
 import 'package:flutter/foundation.dart';
 
-import '../config.dart';
-
 enum SessionStatus { signedOut, signingIn, signedIn, error }
 
 /// Session state powered by the public `dartstream_client` SDK.
@@ -14,6 +12,12 @@ enum SessionStatus { signedOut, signingIn, signedIn, error }
 /// [DartStreamClient] used for all subsequent service calls
 /// (`experience`, `reactive`, `platform`, `persistence`, `billing`).
 class Session extends ChangeNotifier {
+  Session({required this.firebaseApiKey});
+
+  /// Resolved at app boot from `/__/firebase/init.json` on Firebase Hosting,
+  /// or the const fallback locally — see `bootstrap.dart`.
+  final String firebaseApiKey;
+
   SessionStatus status = SessionStatus.signedOut;
   String? errorMessage;
   DartStreamConnection? _connection;
@@ -27,7 +31,7 @@ class Session extends ChangeNotifier {
   String? get tenantId => _connection?.session.tenantId;
 
   DartStreamConfig get _config =>
-      DartStreamConfig.dev(firebaseApiKey: AppConfig.firebaseApiKey);
+      DartStreamConfig.dev(firebaseApiKey: firebaseApiKey);
 
   Future<void> signUp(String email, String password) => _authenticate(
         () => DartStreamClient.signUp(

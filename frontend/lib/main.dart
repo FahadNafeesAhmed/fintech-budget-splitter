@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 
+import 'bootstrap.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'state/session.dart';
 
-void main() {
-  runApp(const BudgetSplitterApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Prefer Firebase Hosting's auto-served /__/firebase/init.json (per the
+  // dartstream_client README), fall back to the const in AppConfig.
+  final firebaseApiKey = await loadFirebaseApiKey();
+  runApp(BudgetSplitterApp(firebaseApiKey: firebaseApiKey));
 }
 
 /// App entry point following the DartStream founder sample app pattern:
@@ -13,14 +18,16 @@ void main() {
 ///   - Session is a ChangeNotifier passed through the widget tree
 ///   - Routing is driven by session.status (no Riverpod, no StreamProvider)
 class BudgetSplitterApp extends StatefulWidget {
-  const BudgetSplitterApp({super.key});
+  const BudgetSplitterApp({super.key, required this.firebaseApiKey});
+
+  final String firebaseApiKey;
 
   @override
   State<BudgetSplitterApp> createState() => _BudgetSplitterAppState();
 }
 
 class _BudgetSplitterAppState extends State<BudgetSplitterApp> {
-  final _session = Session();
+  late final Session _session = Session(firebaseApiKey: widget.firebaseApiKey);
 
   @override
   void initState() {
