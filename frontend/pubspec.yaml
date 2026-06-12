@@ -3,12 +3,14 @@ description: FinTech Budget Splitter — Flutter frontend powered by DartStream.
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: ">=3.12.0 <4.0.0"
+  flutter: ">=3.44.0"
 
 dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.0
+  dartstream_client: ^0.0.1
   shared_models:
     path: ../packages/shared_models
   google_fonts: ^6.1.0

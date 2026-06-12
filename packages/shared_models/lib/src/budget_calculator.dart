@@ -1,8 +1,6 @@
 import 'transaction_model.dart';
 
 class BudgetCalculator {
-  // NOTE: Intentionally naive — does NOT round to 2 decimal places.
-  // This will cause the unit test expecting $3.33 to fail with 3.3333333...
   static SplitResult calculate(Transaction transaction) {
     if (transaction.numberOfPeople <= 0) {
       throw ArgumentError('Number of people must be greater than zero.');
@@ -11,8 +9,8 @@ class BudgetCalculator {
       throw ArgumentError('Total amount cannot be negative.');
     }
 
-    final amountPerPerson =
-        transaction.totalAmount / transaction.numberOfPeople;
+    final raw = transaction.totalAmount / transaction.numberOfPeople;
+    final amountPerPerson = (raw * 100).round() / 100;
 
     return SplitResult(
       amountPerPerson: amountPerPerson,

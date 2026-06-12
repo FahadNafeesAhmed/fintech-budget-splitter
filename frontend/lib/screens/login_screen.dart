@@ -10,7 +10,7 @@ import '../state/session.dart';
 ///   - SegmentedButton to toggle Sign In / Create Account
 ///   - Delegates auth to Session.signIn() / Session.signUp()
 ///   - Surfaces Firebase API key warning when key is not injected
-///   - No firebase_auth package dependency — uses FirebaseAuthRest (Identity Toolkit REST)
+///   - No firebase_auth package dependency — uses the `dartstream_client` SDK
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.session});
   final Session session;

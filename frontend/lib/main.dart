@@ -9,7 +9,7 @@ void main() {
 }
 
 /// App entry point following the DartStream founder sample app pattern:
-///   - No firebase_core init — auth is handled via Identity Toolkit REST
+///   - Auth is handled by `dartstream_client` (Identity Toolkit REST → ds-auth)
 ///   - Session is a ChangeNotifier passed through the widget tree
 ///   - Routing is driven by session.status (no Riverpod, no StreamProvider)
 class BudgetSplitterApp extends StatefulWidget {

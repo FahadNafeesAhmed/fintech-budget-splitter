@@ -1,10 +1,12 @@
 import 'dart:ui';
 
+import 'package:dartstream_client/dartstream_client.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_models/shared_models.dart';
 
+import '../config.dart';
 import '../state/session.dart';
 
 /// Main budget splitter screen.
@@ -85,48 +87,84 @@ class _HomeScreenState extends State<HomeScreen>
         numberOfPeople: people,
       );
 
-      // Local math via shared_models (intentional naive division — no rounding).
-      // DartStream feature flag `enable_rounding` would gate the fix here.
       final result = BudgetCalculator.calculate(transaction);
       setState(() => _state = _Success(result));
 
-      // DartStream: save to persistence + log reactive event (fire-and-forget).
-      final api = widget.session.api;
-      final tenantId = widget.session.tenantId;
-      final userId = widget.session.userId;
-      if (api != null && tenantId != null && userId != null) {
-        setState(() => _eventLog.insert(0, _DsEvent('ds-experience', 'Saving to cloud-save → split_history')));
-        api.saveSplitTransaction(
-          userId: userId,
-          tenantId: tenantId,
-          transaction: transaction,
-          result: result,
-        ).then((_) {
-          setState(() => _eventLog.insert(0, _DsEvent('ds-experience', 'Saved ✓', success: true)));
-        }).catchError((e) {
-          setState(() => _eventLog.insert(0, _DsEvent('ds-experience', 'Save skipped (dev env)', warning: true)));
-        });
+      // DartStream: append to cloud-save history + log reactive event.
+      // Cloud-save snapshots are single-slot last-write-wins, so we
+      // read-modify-write the full history list back into the slot.
+      final client = widget.session.client;
+      final dsSession = widget.session.dsSession;
+      if (client != null && dsSession != null) {
+        const scope = DartStreamScope(projectId: AppConfig.projectId);
+        final entry = <String, dynamic>{
+          'total_amount': transaction.totalAmount,
+          'number_of_people': transaction.numberOfPeople,
+          'description': transaction.description,
+          'amount_per_person': result.amountPerPerson,
+          'calculated_at': DateTime.now().toIso8601String(),
+        };
+
+        setState(() => _eventLog.insert(0, _DsEvent('ds-experience', 'Read-modify-write → split_history')));
+        () async {
+          try {
+            final snapshot = await client.experience.loadCloudSave(
+              dsSession,
+              scope: scope,
+              slotKey: 'split_history',
+            );
+            final existing = _extractItems(snapshot);
+            existing.insert(0, entry);
+            await client.experience.saveCloudSave(
+              dsSession,
+              scope: scope,
+              slotKey: 'split_history',
+              payload: {'items': existing},
+            );
+            if (!mounted) return;
+            setState(() => _eventLog.insert(0, _DsEvent('ds-experience', 'Saved ✓ (${existing.length} entries)', success: true)));
+          } catch (e) {
+            if (!mounted) return;
+            setState(() => _eventLog.insert(0, _DsEvent('ds-experience', _errorLine(e), warning: true)));
+          }
+        }();
 
         setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', 'Logging split_calculated event')));
-        api.logSplitCalculated(
-          tenantId: tenantId,
-          transaction: transaction,
-          result: result,
+        client.reactive.logEvent(
+          dsSession,
+          eventType: 'split_calculated',
+          payload: {
+            'total_amount': transaction.totalAmount,
+            'number_of_people': transaction.numberOfPeople,
+            'amount_per_person': result.amountPerPerson,
+            'description': transaction.description,
+          },
         ).then((_) {
+          if (!mounted) return;
           setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', 'Event logged ✓', success: true)));
         }).catchError((e) {
-          setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', 'Event skipped (dev env)', warning: true)));
+          if (!mounted) return;
+          setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', _errorLine(e), warning: true)));
         });
       }
     } on ArgumentError catch (e) {
       final msg = e.message.toString();
       setState(() => _state = _Error(msg));
-      // DartStream: log error event
-      final api = widget.session.api;
-      final tenantId = widget.session.tenantId;
-      if (api != null && tenantId != null) {
+      final client = widget.session.client;
+      final dsSession = widget.session.dsSession;
+      if (client != null && dsSession != null) {
         setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', 'Logging split_error event')));
-        api.logSplitError(tenantId: tenantId, error: msg).catchError((_) {});
+        client.reactive.logEvent(
+          dsSession,
+          eventType: 'split_error',
+          payload: {'error': msg},
+        ).then((_) {
+          if (!mounted) return;
+          setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', 'split_error logged ✓', success: true)));
+        }).catchError((e) {
+          if (!mounted) return;
+          setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', _errorLine(e), warning: true)));
+        });
       }
     } catch (_) {
       setState(() => _state = _Error('Something went wrong. Please try again.'));
@@ -533,6 +571,28 @@ class _HomeScreenState extends State<HomeScreen>
     if (charCount <= 5) return 56;
     if (charCount <= 8) return 44;
     return 34;
+  }
+
+  /// Reads the history list from a `loadCloudSave` snapshot. Cloud-save
+  /// stores a single Map; we wrap the history under `items` on write.
+  List<Map<String, dynamic>> _extractItems(Map<String, dynamic>? snapshot) {
+    if (snapshot == null) return <Map<String, dynamic>>[];
+    final payload = snapshot['payload'] ?? snapshot;
+    final items = (payload is Map ? payload['items'] : null);
+    if (items is List) {
+      return items.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+    }
+    return <Map<String, dynamic>>[];
+  }
+
+  /// Surfaces the real failure (status code + body or exception message)
+  /// instead of a vague "dev env" warning, so demo bugs aren't hidden.
+  String _errorLine(Object e) {
+    if (e is DartStreamApiException) {
+      final body = e.body.length > 120 ? '${e.body.substring(0, 120)}…' : e.body;
+      return 'HTTP ${e.statusCode}: $body';
+    }
+    return e.toString();
   }
 
   Widget _dartstreamPanel() {
