@@ -137,8 +137,15 @@ dart_frog dev
 ```bash
 cd frontend
 flutter pub get
-flutter run -d chrome
+flutter run -d chrome --web-port=8080
 ```
+
+> ⚠️ **The port matters.** The DartStream dev backend's CORS allowlist
+> currently includes only `http://localhost:8080`. From any other origin
+> (including Firebase Hosting) the browser blocks the ds-auth call and the
+> login button surfaces *"Could not reach DartStream (CORS or network)"*.
+> Always launch with `--web-port=8080` locally, and ask the DartStream team
+> to whitelist your deployed origin before relying on the hosted demo.
 
 The Firebase **web** API key for this sample project is embedded in
 `lib/config.dart` and `web/index.html`. Firebase web API keys identify a
@@ -147,7 +154,7 @@ by Firebase rules and the authorized-domain list, not by hiding the key.
 To point the app at a different Firebase project at build time, override it:
 
 ```bash
-flutter run -d chrome --dart-define=FIREBASE_API_KEY=<other_key>
+flutter run -d chrome --web-port=8080 --dart-define=FIREBASE_API_KEY=<other_key>
 ```
 
 ---
