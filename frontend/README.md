@@ -1,29 +1,28 @@
 # Frontend — Flutter Web App
 
-Flutter web app with glassmorphic UI, Firebase Auth, and Firestore integration.
+Flutter web app wired to DartStream SaaS via the public
+[`dartstream_client`](https://pub.dev/packages/dartstream_client) package.
 
 ## Features
 
 - Glassmorphic card design with backdrop blur
-- Email/password + anonymous authentication via Firebase
-- Riverpod state management (sealed class state pattern)
-- Micro-animations on button press and result reveal
-- Saves each split to Firestore under the authenticated user
-- Error handling via SnackBar (no crash dialogs)
+- Email/password sign-in via the DartStream SDK's one-call `signIn` / `signUp`
+  (Identity Toolkit REST under the hood — no FlutterFire on the client)
+- `Session` `ChangeNotifier` (no Riverpod, no `firebase_core` init)
+- Cloud-save history via `client.experience` (read-modify-write list pattern)
+- Reactive event logging via `client.reactive`
+- Real `HTTP <code>: <body>` surfaced on save/event failures (no hidden errors)
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `lib/main.dart` | App entry, Firebase init, auth routing |
-| `lib/firebase_options.dart` | Firebase project config |
-| `lib/screens/login_screen.dart` | Sign in / Sign up / Guest login UI |
-| `lib/screens/home_screen.dart` | Main split calculator UI |
-| `lib/services/api_client.dart` | HTTP client for Dart Frog backend |
-| `lib/services/firebase_service.dart` | Firebase Auth + Firestore wrapper |
-| `lib/providers/auth_provider.dart` | Riverpod auth + history stream providers |
-| `test/math_test.dart` | **Unit tests — first test WILL FAIL (intentional bug)** |
-| `test/firebase_mock_test.dart` | Mock Firestore stream tests — contains async race condition trap |
+| `lib/main.dart` | App entry; session-driven routing |
+| `lib/config.dart` | `FIREBASE_API_KEY` (`--dart-define`), `projectId`, `environmentId` |
+| `lib/state/session.dart` | `DartStreamClient.signIn` / `signUp` wrapper |
+| `lib/screens/login_screen.dart` | Sign in / create account UI |
+| `lib/screens/home_screen.dart` | Calculator + cloud-save + reactive event log |
+| `test/math_test.dart` | Unit tests for `BudgetCalculator` |
 
 ## Running
 
@@ -32,7 +31,11 @@ flutter pub get
 flutter run -d chrome
 ```
 
-## Testing (shows the intentional failures)
+The Firebase web API key is embedded in `lib/config.dart` and
+`web/index.html`. To point at a different Firebase project, override at
+build time with `--dart-define=FIREBASE_API_KEY=<other_key>`.
+
+## Testing
 
 ```bash
 flutter test
@@ -42,5 +45,5 @@ flutter test
 
 ```bash
 flutter build web --release
-npx firebase-tools deploy
+npx firebase-tools deploy --only hosting
 ```

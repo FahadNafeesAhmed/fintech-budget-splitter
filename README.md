@@ -61,74 +61,47 @@ This project follows the [DartStream](https://github.com/aortem/dartstream) open
 ## Monorepo Structure
 
 ```
-fintech_tracker/
+fintech-budget-splitter/
 ├── packages/
 │   └── shared_models/              # Shared Dart logic (DTOs + BudgetCalculator)
 │       ├── lib/src/
 │       │   ├── transaction_model.dart
-│       │   └── budget_calculator.dart  ⚠️ intentional naive division bug
+│       │   └── budget_calculator.dart
 │       └── pubspec.yaml
-├── backend/                        # Dart Frog REST API (local dev only)
-│   ├── routes/
-│   │   ├── _middleware.dart        # CORS headers
-│   │   └── api/transactions/index.dart
-│   └── pubspec.yaml
-├── frontend/                       # Flutter web app
+├── backend/                        # Optional Dart Frog illustration — NOT on the
+│   │                                 DartStream path; the frontend does NOT call it
+│   └── routes/
+├── frontend/                       # Flutter web app (the DartStream sample)
 │   ├── lib/
-│   │   ├── config.dart             # AppConfig — DartStream microservice hosts
-│   │   ├── api/
-│   │   │   ├── firebase_auth.dart  # Identity Toolkit REST client
-│   │   │   └── dartstream.dart     # DartStream API client
+│   │   ├── config.dart             # FIREBASE_API_KEY + projectId/environmentId
 │   │   ├── state/
-│   │   │   └── session.dart        # Session ChangeNotifier (DartStream pattern)
+│   │   │   └── session.dart        # DartStreamClient.signIn / signUp wrapper
 │   │   ├── screens/
-│   │   │   ├── login_screen.dart   # SegmentedButton Sign In / Create Account
-│   │   │   └── home_screen.dart    # Split calculator + DartStream integration
+│   │   │   ├── login_screen.dart   # Sign In / Create Account
+│   │   │   └── home_screen.dart    # Calculator + experience/reactive integration
 │   │   └── main.dart               # Session-driven routing
 │   ├── test/
-│   │   ├── math_test.dart          # ⚠️ WILL FAIL — the DartCodeAI trap
-│   │   └── firebase_mock_test.dart # ⚠️ async race condition trap
+│   │   └── math_test.dart          # BudgetCalculator unit tests
 │   └── pubspec.yaml
 └── melos.yaml                      # Monorepo workspace
 ```
 
 ---
 
-## The Intentional Bugs (DartCodeAI Traps)
-
-This project is designed to be ingested by DartCodeAI as a QA stress test. Two intentional failures are baked in:
-
-### Trap 1 — Floating-Point Rounding (`math_test.dart`)
-
-`packages/shared_models/lib/src/budget_calculator.dart` uses naive division:
-
-```dart
-// BUG: returns 3.3333... not 3.33
-final amountPerPerson = transaction.totalAmount / transaction.numberOfPeople;
-```
-
-The unit test expects exactly `3.33`. **It will fail.**
-
-**The fix DartCodeAI should apply:**
-```dart
-final raw = transaction.totalAmount / transaction.numberOfPeople;
-final amountPerPerson = (raw * 100).round() / 100;
-```
-
-### Trap 2 — Async Race Condition (`firebase_mock_test.dart`)
-
-A `StreamController` is never closed, causing `toList()` to hang forever → test timeout. A `null` value is cast into a typed stream → type-cast exception buried in Firestore internals.
-
----
-
 ## DartStream Services Used
 
-| Service | Endpoint | Usage |
-|---------|---------|-------|
-| `ds-auth` | `dev-apiauth.dartstream.io` | Signup, login, user/tenant resolution |
-| `ds-platform` | `dev-apiplatform.dartstream.io` | Feature flags (`enable_rounding`, `split_history`) |
-| `ds-experience` | `dev-apiexperience.dartstream.io` | Cloud-save persistence (`split_history` slot) |
-| `ds-reactive` | `dev-apireactive.dartstream.io` | Event logging (`split_calculated`, `split_error`) |
+All wiring goes through the public
+[`dartstream_client`](https://pub.dev/packages/dartstream_client) package.
+Host resolution lives in the SDK (`DartStreamConfig.dev()` /
+`DartStreamConfig.prod()` / `DartStreamConfig.local()`), so the hosts below are
+for reference only — no host strings are hard-coded in this app.
+
+| Service | Used via | Usage in this sample |
+|---------|---------|----------------------|
+| `ds-auth` | `client.auth` (one-call `signIn` / `signUp`) | Sign-up, sign-in, user/tenant resolution |
+| `ds-platform` | `client.platform` | Feature flags (`enable_rounding`, `split_history`) |
+| `ds-experience` | `client.experience.loadCloudSave` / `saveCloudSave` | Cloud-save `split_history` slot (read-modify-write list pattern) |
+| `ds-reactive` | `client.reactive.logEvent` | `split_calculated` / `split_error` events |
 
 ---
 
@@ -136,16 +109,15 @@ A `StreamController` is never closed, causing `toList()` to hang forever → tes
 
 | Layer | Technology |
 |-------|-----------|
-| Language | Dart `>=3.0.0 <4.0.0` |
+| Language / SDK floor | Dart `>=3.12.0 <4.0.0`, Flutter `>=3.44.0` |
 | Frontend Framework | Flutter Web |
-| Backend Framework | DartStream Standard Engine |
-| Local Dev Backend | Dart Frog |
-| Auth | Firebase Identity Toolkit REST (no firebase_auth package) |
+| Backend | DartStream SaaS via `dartstream_client` |
+| Auth | DartStream SDK (Identity Toolkit REST → ds-auth) — no `firebase_auth` |
 | Persistence | DartStream cloud-save (experience service) |
 | Events | DartStream reactive event pipeline |
-| Feature Flags | DartStream platform service (IntelliToggle-compatible) |
+| Feature Flags | DartStream platform service |
 | Shared Logic | Pure Dart package (`shared_models`) |
-| Testing | flutter_test + mockito |
+| Testing | `flutter_test` |
 | Monorepo | Melos |
 | Deployment | Firebase Hosting |
 
@@ -165,20 +137,26 @@ dart_frog dev
 ```bash
 cd frontend
 flutter pub get
-flutter run -d chrome --dart-define=FIREBASE_API_KEY=<your_key>
+flutter run -d chrome
 ```
 
-The `FIREBASE_API_KEY` is your Firebase project's web API key. It is never committed.
+The Firebase **web** API key for this sample project is embedded in
+`lib/config.dart` and `web/index.html`. Firebase web API keys identify a
+project to Google's APIs and are intended to be public — security is enforced
+by Firebase rules and the authorized-domain list, not by hiding the key.
+To point the app at a different Firebase project at build time, override it:
+
+```bash
+flutter run -d chrome --dart-define=FIREBASE_API_KEY=<other_key>
+```
 
 ---
 
-## Testing (intentional failures included)
+## Testing
 
 ```bash
 cd frontend
 flutter test
-# FAIL: math_test.dart — 3.3333 ≠ 3.33 (Trap 1)
-# FAIL: firebase_mock_test.dart — async race condition (Trap 2)
 ```
 
 ---
@@ -187,7 +165,7 @@ flutter test
 
 ```bash
 cd frontend
-flutter build web --release --dart-define=FIREBASE_API_KEY=<your_key>
+flutter build web --release
 npx firebase-tools deploy --only hosting
 ```
 

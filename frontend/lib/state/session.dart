@@ -1,47 +1,59 @@
+import 'package:dartstream_client/dartstream_client.dart';
 import 'package:flutter/foundation.dart';
 
-import '../api/dartstream.dart';
-import '../api/firebase_auth.dart';
+import '../config.dart';
 
 enum SessionStatus { signedOut, signingIn, signedIn, error }
 
-/// Session state following the DartStream pattern from the founder's sample app.
+/// Session state powered by the public `dartstream_client` SDK.
 ///
-/// Authentication flow:
-///   1. Firebase Identity Toolkit issues an ID token (client-side).
-///   2. DartStream's ds-auth backend verifies the token and returns userId + tenantId.
-///   3. All subsequent API calls use the DartstreamApi instance with the Bearer token.
+/// The SDK's `DartStreamClient.signIn` / `signUp` do the full handshake in
+/// one call: Firebase Identity Toolkit auth + ds-auth onboarding. The returned
+/// [DartStreamConnection] carries a resolved [DartStreamSession] (with
+/// `userId`, `tenantId`, `email`, `idToken`) and a session-bound
+/// [DartStreamClient] used for all subsequent service calls
+/// (`experience`, `reactive`, `platform`, `persistence`, `billing`).
 class Session extends ChangeNotifier {
   SessionStatus status = SessionStatus.signedOut;
-  String? email;
-  String? userId;
-  String? tenantId;
   String? errorMessage;
-  DartstreamApi? api;
+  DartStreamConnection? _connection;
 
   bool get isSignedIn => status == SessionStatus.signedIn;
 
-  Future<void> signUp(String email, String password) =>
-      _authenticate(() => FirebaseAuthRest.signUp(email, password));
+  DartStreamClient? get client => _connection?.client;
+  DartStreamSession? get dsSession => _connection?.session;
+  String? get email => _connection?.session.email;
+  String? get userId => _connection?.session.userId;
+  String? get tenantId => _connection?.session.tenantId;
 
-  Future<void> signIn(String email, String password) =>
-      _authenticate(() => FirebaseAuthRest.signIn(email, password));
+  DartStreamConfig get _config =>
+      DartStreamConfig.dev(firebaseApiKey: AppConfig.firebaseApiKey);
+
+  Future<void> signUp(String email, String password) => _authenticate(
+        () => DartStreamClient.signUp(
+          config: _config,
+          email: email,
+          password: password,
+        ),
+      );
+
+  Future<void> signIn(String email, String password) => _authenticate(
+        () => DartStreamClient.signIn(
+          config: _config,
+          email: email,
+          password: password,
+        ),
+      );
 
   Future<void> _authenticate(
-    Future<FirebaseAuthResult> Function() firebaseAuth,
+    Future<DartStreamConnection> Function() doAuth,
   ) async {
     status = SessionStatus.signingIn;
     errorMessage = null;
     notifyListeners();
 
     try {
-      final auth = await firebaseAuth();
-      final dsApi = DartstreamApi(idToken: auth.idToken);
-      final ids = await dsApi.signup();
-      api = dsApi;
-      this.email = auth.email;
-      userId = ids.userId;
-      tenantId = ids.tenantId;
+      _connection = await doAuth();
       status = SessionStatus.signedIn;
     } catch (e) {
       status = SessionStatus.error;
@@ -53,18 +65,30 @@ class Session extends ChangeNotifier {
 
   String _readable(Object e) {
     final s = e.toString();
-    return s.startsWith('FirebaseAuthException: ')
-        ? s.substring('FirebaseAuthException: '.length)
-        : s;
+    if (s.contains('EMAIL_EXISTS')) {
+      return 'An account with that email already exists — switch to Sign In.';
+    }
+    if (s.contains('EMAIL_NOT_FOUND') ||
+        s.contains('INVALID_LOGIN_CREDENTIALS') ||
+        s.contains('INVALID_PASSWORD')) {
+      return 'Invalid email or password.';
+    }
+    if (s.contains('WEAK_PASSWORD')) {
+      return 'Password is too weak — use at least 6 characters.';
+    }
+    if (s.contains('INVALID_EMAIL')) {
+      return 'That email address is not valid.';
+    }
+    if (s.contains('TOO_MANY_ATTEMPTS')) {
+      return 'Too many attempts — please wait a moment and try again.';
+    }
+    return s;
   }
 
   void signOut() {
+    _connection = null;
     status = SessionStatus.signedOut;
-    email = null;
-    userId = null;
-    tenantId = null;
     errorMessage = null;
-    api = null;
     notifyListeners();
   }
 }
