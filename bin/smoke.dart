@@ -42,7 +42,7 @@ Future<void> main() async {
       () => http.get(Uri.parse('${h.experience}/api/v1/experience/profiles/me?userId=${ids.userId}&tenantId=${ids.tenantId}'), headers: headers));
 
   // Cloud-save round-trip on the slot the Flutter client uses.
-  final slot = 'split_history';
+  const slot = 'split_history';
   final scopeQs = 'projectId=${env.projectId}&environmentId=${env.environmentId}&userId=${ids.userId}&tenantId=${ids.tenantId}';
   await report.step('experience', 'POST /api/v1/experience/cloud-save/$slot',
       () => http.post(
