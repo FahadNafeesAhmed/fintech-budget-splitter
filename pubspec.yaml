@@ -1,0 +1,10 @@
+name: fintech_smoke
+description: End-to-end smoke + deep-dive CLIs for the FinTech Budget Splitter sample against the DartStream dev API.
+publish_to: none
+
+# Min Dart 3.12.0; tracks latest stable. See README Prerequisites.
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  http: ^1.2.2

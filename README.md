@@ -62,6 +62,17 @@ This project follows the [DartStream](https://github.com/aortem/dartstream) open
 
 ```
 fintech-budget-splitter/
+├── bin/                            # headless Dart CLIs (contract probes)
+│   ├── _shared.dart                # Firebase Identity Toolkit + ds-auth onboarding
+│   ├── smoke.dart                  # one representative contract per service
+│   ├── auth_deepdive.dart          # full ds-auth surface
+│   ├── platform_deepdive.dart      # feature-flags, projects, api-keys, team, …
+│   ├── experience_deepdive.dart    # profiles, cloud-save (split_history), inventory
+│   ├── reactive_deepdive.dart      # events, streaming channels, notifications
+│   └── persistence_deepdive.dart   # database, storage, logging
+├── .env.example                    # config template — copy to .env (gitignored)
+├── pubspec.yaml                    # deps for the bin/ CLIs (http only)
+├── .github/workflows/ci.yml        # analyze bin + shared_models, build frontend
 ├── packages/
 │   └── shared_models/              # Shared Dart logic (DTOs + BudgetCalculator)
 │       ├── lib/src/
@@ -71,7 +82,8 @@ fintech-budget-splitter/
 ├── backend/                        # Optional Dart Frog illustration — NOT on the
 │   │                                 DartStream path; the frontend does NOT call it
 │   └── routes/
-├── frontend/                       # Flutter web app (the DartStream sample)
+├── frontend/                       # Flutter web app (the customer reference,
+│   │                                 consumes the dartstream_client SDK)
 │   ├── lib/
 │   │   ├── config.dart             # FIREBASE_API_KEY + projectId/environmentId
 │   │   ├── state/
@@ -85,6 +97,26 @@ fintech-budget-splitter/
 │   └── pubspec.yaml
 └── melos.yaml                      # Monorepo workspace
 ```
+
+The split mirrors the DartStream founder sample app: `frontend/` is the **customer reference** that consumes the first-party `dartstream_client` SDK exactly as a real client would, while `bin/` is a set of **low-level contract probes** that hand-write Firebase REST + raw `Authorization`/`X-Tenant-ID` headers with `package:http` so they verify the deployed HTTP contracts independently of the SDK. Don't copy `bin/` into an app.
+
+### Running the smoke + deep-dive CLIs
+
+```bash
+cp .env.example .env
+# fill in FIREBASE_API_KEY + TEST_EMAIL + TEST_PASSWORD
+set -a && source .env && set +a
+
+dart pub get
+dart run bin/smoke.dart                 # 10-endpoint health check across all 5 services
+dart run bin/auth_deepdive.dart         # full ds-auth surface (PASS/FAIL/SKIP table)
+dart run bin/platform_deepdive.dart     # feature-flags, projects, api-keys, team
+dart run bin/experience_deepdive.dart   # profiles, cloud-save (split_history), inventory
+dart run bin/reactive_deepdive.dart     # events, streaming, notifications
+dart run bin/persistence_deepdive.dart  # database, storage, logging
+```
+
+Destructive endpoints (DELETE user, revoke-all-sessions, invitation emails, member-role changes) are skipped by default. Re-run with `DEEPDIVE_DESTRUCTIVE=1` to include them.
 
 ---
 

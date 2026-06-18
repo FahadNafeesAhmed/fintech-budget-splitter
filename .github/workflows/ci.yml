@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  bin-cli-analyze:
+    name: Analyze bin/ smoke + deep-dive CLIs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - run: dart analyze bin
+
+  shared-models:
+    name: shared_models — analyze + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/shared_models
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - run: dart analyze
+      - run: dart test
+
+  frontend:
+    name: Flutter web — analyze + test + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build web --release
