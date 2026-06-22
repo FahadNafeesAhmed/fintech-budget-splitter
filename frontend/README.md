@@ -28,7 +28,7 @@ Flutter web app wired to DartStream SaaS via the public
 
 ```bash
 flutter pub get
-flutter run -d chrome --web-port=8080
+flutter run -d chrome --web-port=8080 --dart-define=FIREBASE_API_KEY=<your_web_api_key>
 ```
 
 > ⚠️ The `--web-port=8080` flag is required: the DartStream dev backend's
@@ -36,9 +36,11 @@ flutter run -d chrome --web-port=8080
 > it the browser blocks the ds-auth POST and the login banner shows
 > *"Could not reach DartStream (CORS or network)"*.
 
-The Firebase web API key is embedded in `lib/config.dart` and
-`web/index.html`. To point at a different Firebase project, override at
-build time with `--dart-define=FIREBASE_API_KEY=<other_key>`.
+The Firebase web API key is **not committed** — pass it with
+`--dart-define=FIREBASE_API_KEY=<your_web_api_key>` locally. On Firebase
+Hosting, `lib/bootstrap.dart` loads the public config from
+`/__/firebase/init.json` automatically, so no key is needed for the deployed
+build.
 
 ## Testing
 

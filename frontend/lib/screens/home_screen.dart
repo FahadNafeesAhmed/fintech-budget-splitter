@@ -12,11 +12,9 @@ import '../state/session.dart';
 /// Main budget splitter screen.
 ///
 /// DartStream integration:
-///   - Reads feature flag `enable_rounding` from DartStream platform service.
-///     When enabled, the result is rounded to 2 decimal places.
 ///   - Saves every split to DartStream persistence (cloud-save slot: split_history).
 ///   - Logs `split_calculated` / `split_error` events to DartStream reactive pipeline.
-///   - Math still runs locally via shared_models BudgetCalculator (intentional naive bug kept).
+///   - Split math runs locally via shared_models BudgetCalculator (rounds to 2 dp).
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.session});
   final Session session;
@@ -314,7 +312,7 @@ class _HomeScreenState extends State<HomeScreen>
           Text(
             widget.session.email ?? '',
             style: GoogleFonts.inter(
-              color: Colors.white.withOpacity(0.4),
+              color: Colors.white.withValues(alpha: 0.4),
               fontSize: 12,
             ),
           ),
@@ -324,7 +322,7 @@ class _HomeScreenState extends State<HomeScreen>
             child: Text(
               'Sign out',
               style: GoogleFonts.inter(
-                color: Colors.white.withOpacity(0.4),
+                color: Colors.white.withValues(alpha: 0.4),
                 fontSize: 12,
                 decoration: TextDecoration.underline,
               ),
@@ -347,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF4F8EF7).withOpacity(0.4),
+                color: const Color(0xFF4F8EF7).withValues(alpha: 0.4),
                 blurRadius: 24,
                 spreadRadius: 4,
               ),
@@ -371,7 +369,7 @@ class _HomeScreenState extends State<HomeScreen>
           'Split any bill instantly',
           style: GoogleFonts.inter(
             fontSize: 16,
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withValues(alpha: 0.5),
           ),
         ),
       ],
@@ -386,9 +384,9 @@ class _HomeScreenState extends State<HomeScreen>
         child: Container(
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.07),
+            color: Colors.white.withValues(alpha: 0.07),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.12)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           ),
           child: child,
         ),
@@ -413,7 +411,7 @@ class _HomeScreenState extends State<HomeScreen>
       decoration: InputDecoration(
         labelText: label,
         labelStyle: GoogleFonts.inter(
-            color: Colors.white.withOpacity(0.6), fontSize: 14),
+            color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
         prefixText: '$prefix  ',
         prefixStyle: GoogleFonts.inter(
             color: const Color(0xFF4F8EF7),
@@ -421,7 +419,7 @@ class _HomeScreenState extends State<HomeScreen>
             fontSize: 16),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.15)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -438,7 +436,7 @@ class _HomeScreenState extends State<HomeScreen>
               const BorderSide(color: Color(0xFFE53935), width: 1.5),
         ),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.05),
+        fillColor: Colors.white.withValues(alpha: 0.05),
         errorStyle: GoogleFonts.inter(color: const Color(0xFFE57373)),
       ),
     );
@@ -461,7 +459,7 @@ class _HomeScreenState extends State<HomeScreen>
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF4F8EF7)
-                    .withOpacity(isLoading ? 0.2 : 0.4),
+                    .withValues(alpha: isLoading ? 0.2 : 0.4),
                 blurRadius: isLoading ? 8 : 20,
                 offset: const Offset(0, 6),
               ),
@@ -510,7 +508,7 @@ class _HomeScreenState extends State<HomeScreen>
             Text(
               'Each person pays',
               style: GoogleFonts.inter(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 14,
                 letterSpacing: 0.5,
               ),
@@ -534,7 +532,7 @@ class _HomeScreenState extends State<HomeScreen>
             Text(
               '\$${result.totalAmount.toStringAsFixed(2)} ÷ ${result.numberOfPeople} people',
               style: GoogleFonts.inter(
-                color: Colors.white.withOpacity(0.4),
+                color: Colors.white.withValues(alpha: 0.4),
                 fontSize: 13,
               ),
             ),
@@ -555,7 +553,7 @@ class _HomeScreenState extends State<HomeScreen>
                 Text(
                   'Logged to DartStream',
                   style: GoogleFonts.inter(
-                    color: const Color(0xFF4F8EF7).withOpacity(0.6),
+                    color: const Color(0xFF4F8EF7).withValues(alpha: 0.6),
                     fontSize: 11,
                   ),
                 ),
@@ -641,7 +639,7 @@ class _HomeScreenState extends State<HomeScreen>
             Text(
               'REACTIVE EVENT LOG',
               style: GoogleFonts.inter(
-                color: Colors.white.withOpacity(0.3),
+                color: Colors.white.withValues(alpha: 0.3),
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.2,
@@ -656,7 +654,7 @@ class _HomeScreenState extends State<HomeScreen>
               Text(
                 'Tenant: ',
                 style: GoogleFonts.inter(
-                  color: Colors.white.withOpacity(0.25),
+                  color: Colors.white.withValues(alpha: 0.25),
                   fontSize: 11,
                 ),
               ),
@@ -664,7 +662,7 @@ class _HomeScreenState extends State<HomeScreen>
                 child: Text(
                   widget.session.tenantId ?? 'Authenticating…',
                   style: GoogleFonts.inter(
-                    color: Colors.white.withOpacity(0.45),
+                    color: Colors.white.withValues(alpha: 0.45),
                     fontSize: 11,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -683,13 +681,13 @@ class _HomeScreenState extends State<HomeScreen>
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: s.online
-            ? const Color(0xFF4F8EF7).withOpacity(0.12)
-            : Colors.red.withOpacity(0.12),
+            ? const Color(0xFF4F8EF7).withValues(alpha: 0.12)
+            : Colors.red.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: s.online
-              ? const Color(0xFF4F8EF7).withOpacity(0.3)
-              : Colors.red.withOpacity(0.3),
+              ? const Color(0xFF4F8EF7).withValues(alpha: 0.3)
+              : Colors.red.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -706,7 +704,7 @@ class _HomeScreenState extends State<HomeScreen>
           Text(
             s.name,
             style: GoogleFonts.inter(
-              color: Colors.white.withOpacity(0.6),
+              color: Colors.white.withValues(alpha: 0.6),
               fontSize: 9,
               fontWeight: FontWeight.w600,
             ),
@@ -725,7 +723,7 @@ class _HomeScreenState extends State<HomeScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFF4F8EF7).withOpacity(0.15),
+              color: const Color(0xFF4F8EF7).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
@@ -745,7 +743,7 @@ class _HomeScreenState extends State<HomeScreen>
                   ? const Color(0xFF00E676)
                   : e.warning
                       ? Colors.amber.shade300
-                      : Colors.white.withOpacity(0.5),
+                      : Colors.white.withValues(alpha: 0.5),
               fontSize: 11,
             ),
           ),

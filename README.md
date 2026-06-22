@@ -27,34 +27,34 @@ This project follows the [DartStream](https://github.com/aortem/dartstream) open
 ┌─────────────────────────────────────────────────────┐
 │                  Flutter Web Client                 │
 │                                                     │
-│  FirebaseAuthRest ──► Identity Toolkit REST API     │
-│       │                                             │
-│       ▼  (Firebase ID Token)                        │
-│  DartstreamApi ──► Bearer Token ──► DartStream      │
-│                                     Microservices   │
-└─────────────────────────────────────────────────────┘
-                          │
-          ┌───────────────┼───────────────┐
-          ▼               ▼               ▼
-   ds-auth service  ds-platform    ds-experience
-   (verify token,   (feature flags  (cloud-save,
-   user/tenant IDs)  enable_rounding  split_history)
-                    split_history)
-                          │
-                          ▼
-                   ds-reactive
-                   (event log:
-                   split_calculated,
-                   split_error)
+│  dartstream_client SDK                              │
+│    DartStreamClient.signIn / signUp                 │
+│       │   (SDK handles Identity Toolkit + ds-auth   │
+│       │    onboarding; returns a DartStreamSession) │
+│       ▼                                             │
+│  client.experience / client.reactive                │
+└───────────────────────┬─────────────────────────────┘
+                        │  (authenticated session)
+          ┌─────────────┼─────────────┐
+          ▼             ▼             ▼
+     ds-auth       ds-experience   ds-reactive
+   (sign in/up,   (cloud-save     (event log:
+    user/tenant)   split_history)  split_calculated,
+                                   split_error)
 ```
+
+> `ds-platform` (feature flags / projects) is not consumed by the calculator;
+> it is exercised independently by `bin/platform_deepdive.dart` as a contract
+> probe.
 
 ### Auth Flow (DartStream Pattern)
 
-1. Browser calls Firebase Identity Toolkit REST API directly — no `firebase_auth` package, no JS SDK
-2. Identity Toolkit returns a Firebase ID token
-3. `DartstreamApi` attaches token as `Authorization: Bearer <token>`
-4. DartStream's `ds-auth` service verifies the token server-side using the admin SDK
-5. Returns `userId` + `tenantId` — all subsequent calls are scoped to the tenant
+1. The app calls `DartStreamClient.signIn` / `signUp` from the first-party
+   `dartstream_client` SDK — no `firebase_auth` package, no hand-rolled REST.
+2. The SDK performs the Firebase Identity Toolkit exchange and ds-auth
+   onboarding internally, returning an authenticated `DartStreamSession`.
+3. All subsequent service calls (`client.experience`, `client.reactive`) are
+   made through that session, scoped to the resolved user / tenant.
 
 ---
 
@@ -79,9 +79,6 @@ fintech-budget-splitter/
 │       │   ├── transaction_model.dart
 │       │   └── budget_calculator.dart
 │       └── pubspec.yaml
-├── backend/                        # Optional Dart Frog illustration — NOT on the
-│   │                                 DartStream path; the frontend does NOT call it
-│   └── routes/
 ├── frontend/                       # Flutter web app (the customer reference,
 │   │                                 consumes the dartstream_client SDK)
 │   ├── lib/
@@ -131,7 +128,7 @@ for reference only — no host strings are hard-coded in this app.
 | Service | Used via | Usage in this sample |
 |---------|---------|----------------------|
 | `ds-auth` | `client.auth` (one-call `signIn` / `signUp`) | Sign-up, sign-in, user/tenant resolution |
-| `ds-platform` | `client.platform` | Feature flags (`enable_rounding`, `split_history`) |
+| `ds-platform` | `client.platform` | Feature-flag / project surface exercised by `bin/platform_deepdive.dart` (not consumed by the calculator) |
 | `ds-experience` | `client.experience.loadCloudSave` / `saveCloudSave` | Cloud-save `split_history` slot (read-modify-write list pattern) |
 | `ds-reactive` | `client.reactive.logEvent` | `split_calculated` / `split_error` events |
 
@@ -157,19 +154,13 @@ for reference only — no host strings are hard-coded in this app.
 
 ## Running Locally
 
-**Backend (Dart Frog — local dev only)**
-```bash
-cd backend
-dart pub get
-dart_frog dev
-# → http://localhost:8080
-```
+The app is a single Flutter web client that talks to DartStream SaaS via the
+`dartstream_client` SDK. There is no local backend to run.
 
-**Frontend**
 ```bash
 cd frontend
 flutter pub get
-flutter run -d chrome --web-port=8080
+flutter run -d chrome --web-port=8080 --dart-define=FIREBASE_API_KEY=<your_web_api_key>
 ```
 
 > ⚠️ **The port matters.** The DartStream dev backend's CORS allowlist
@@ -179,15 +170,14 @@ flutter run -d chrome --web-port=8080
 > Always launch with `--web-port=8080` locally, and ask the DartStream team
 > to whitelist your deployed origin before relying on the hosted demo.
 
-The Firebase **web** API key for this sample project is embedded in
-`lib/config.dart` and `web/index.html`. Firebase web API keys identify a
-project to Google's APIs and are intended to be public — security is enforced
-by Firebase rules and the authorized-domain list, not by hiding the key.
-To point the app at a different Firebase project at build time, override it:
-
-```bash
-flutter run -d chrome --web-port=8080 --dart-define=FIREBASE_API_KEY=<other_key>
-```
+**The Firebase web API key is not committed.** Pass it at run/build time with
+`--dart-define=FIREBASE_API_KEY=<your_web_api_key>`. When the app is served
+from Firebase Hosting it instead loads the public config from
+`/__/firebase/init.json` automatically (see `lib/bootstrap.dart`), so no key
+is needed there. Firebase web API keys identify a project to Google's APIs and
+are public-by-design — security is enforced by Firebase rules and the
+authorized-domain list — but this sample keeps it out of source control per
+the DartStream "no committed keys" house standard.
 
 ---
 

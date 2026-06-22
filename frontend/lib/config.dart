@@ -8,17 +8,18 @@
 /// Pass it via:
 ///   flutter run -d chrome --dart-define=FIREBASE_API_KEY=$FIREBASE_API_KEY
 class AppConfig {
-  /// Local-dev fallback Firebase web API key. When the app is served from
-  /// Firebase Hosting it prefers `/__/firebase/init.json` (auto-served by
-  /// the Hosting origin), per the dartstream_client README. Web API keys
-  /// identify the project to Google's APIs and are intended to be public —
-  /// security is enforced by Firebase rules + the authorized-domain list.
-  /// The `--dart-define=FIREBASE_API_KEY=...` override still wins.
-  static const _fallbackFirebaseApiKey = 'FIREBASE_WEB_API_KEY_REDACTED';
-  static const firebaseApiKey = String.fromEnvironment(
-    'FIREBASE_API_KEY',
-    defaultValue: _fallbackFirebaseApiKey,
-  );
+  /// Firebase web API key — injected at build/run time, never committed.
+  ///
+  /// Local dev: pass `--dart-define=FIREBASE_API_KEY=<key>`.
+  /// Firebase Hosting: `lib/bootstrap.dart` loads the public config from
+  /// `/__/firebase/init.json` (auto-served by the Hosting origin), so no
+  /// key is embedded in the deployed build either.
+  ///
+  /// Web API keys identify the project to Google's APIs and are public-by-
+  /// design (security is enforced by Firebase rules + the authorized-domain
+  /// list), but per the DartStream "no committed keys" house standard we keep
+  /// it out of source control regardless.
+  static const firebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');
 
   /// Whether a key was actually injected; the login flow surfaces this.
   static bool get hasFirebaseApiKey => firebaseApiKey.isNotEmpty;

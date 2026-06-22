@@ -132,16 +132,16 @@ class _LoginScreenState extends State<LoginScreen> {
                               backgroundColor:
                                   WidgetStateProperty.resolveWith((states) {
                                 if (states.contains(WidgetState.selected)) {
-                                  return const Color(0xFF4F8EF7).withOpacity(0.3);
+                                  return const Color(0xFF4F8EF7).withValues(alpha: 0.3);
                                 }
-                                return Colors.white.withOpacity(0.05);
+                                return Colors.white.withValues(alpha: 0.05);
                               }),
                               foregroundColor:
                                   WidgetStateProperty.resolveWith((states) {
                                 if (states.contains(WidgetState.selected)) {
                                   return Colors.white;
                                 }
-                                return Colors.white.withOpacity(0.5);
+                                return Colors.white.withValues(alpha: 0.5);
                               }),
                             ),
                           ),
@@ -173,11 +173,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFE53935).withOpacity(0.15),
+                                color: const Color(0xFFE53935).withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
                                     color: const Color(0xFFE53935)
-                                        .withOpacity(0.4)),
+                                        .withValues(alpha: 0.4)),
                               ),
                               child: Text(
                                 errorMsg,
@@ -205,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 boxShadow: [
                                   BoxShadow(
                                     color: const Color(0xFF4F8EF7)
-                                        .withOpacity(0.35),
+                                        .withValues(alpha: 0.35),
                                     blurRadius: 16,
                                     offset: const Offset(0, 6),
                                   ),
@@ -261,7 +261,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF4F8EF7).withOpacity(0.4),
+                color: const Color(0xFF4F8EF7).withValues(alpha: 0.4),
                 blurRadius: 24,
                 spreadRadius: 4,
               ),
@@ -288,7 +288,7 @@ class _LoginScreenState extends State<LoginScreen> {
           'Powered by DartStream',
           style: GoogleFonts.inter(
             fontSize: 14,
-            color: const Color(0xFF4F8EF7).withOpacity(0.8),
+            color: const Color(0xFF4F8EF7).withValues(alpha: 0.8),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -300,9 +300,9 @@ class _LoginScreenState extends State<LoginScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.amber.withOpacity(0.12),
+        color: Colors.amber.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.withOpacity(0.4)),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
@@ -332,9 +332,9 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Container(
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.07),
+            color: Colors.white.withValues(alpha: 0.07),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.12)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           ),
           child: child,
         ),
@@ -357,11 +357,11 @@ class _LoginScreenState extends State<LoginScreen> {
       decoration: InputDecoration(
         labelText: label,
         labelStyle: GoogleFonts.inter(
-            color: Colors.white.withOpacity(0.5), fontSize: 14),
+            color: Colors.white.withValues(alpha: 0.5), fontSize: 14),
         prefixIcon: Icon(icon, color: const Color(0xFF4F8EF7), size: 20),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.15)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -369,7 +369,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const BorderSide(color: Color(0xFF4F8EF7), width: 1.5),
         ),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.05),
+        fillColor: Colors.white.withValues(alpha: 0.05),
       ),
     );
   }

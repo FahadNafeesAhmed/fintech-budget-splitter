@@ -4,12 +4,9 @@
 .flutter-plugins-dependencies
 .packages
 build/
-# pubspec.lock is committed for applications (frontend + backend) for
-# reproducible builds; only pure libraries (packages/shared_models) ignore it.
+# pubspec.lock is committed for the frontend application for reproducible
+# builds; only pure libraries (packages/shared_models) ignore it.
 packages/shared_models/pubspec.lock
-
-# Dart Frog
-backend/.dart_frog/
 
 # Firebase
 .firebase/

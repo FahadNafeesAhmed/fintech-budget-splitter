@@ -3,7 +3,6 @@ repository: https://github.com/your-org/fintech-budget-splitter
 
 packages:
   - packages/**
-  - backend
   - frontend
 
 command:

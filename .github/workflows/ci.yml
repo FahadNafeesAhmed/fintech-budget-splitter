@@ -46,10 +46,7 @@ jobs:
         with:
           channel: stable
       - run: flutter pub get
-      # Sample-app deprecations (withOpacity → withValues, etc.) shouldn't
-      # block CI — they're cosmetic on the Flutter stable channel and the
-      # app still runs. Real errors keep failing the step.
-      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter analyze
       - run: flutter test
       # The Firebase web API key is normally injected via --dart-define at
       # run/build time. CI doesn't need a real key (the build only embeds
