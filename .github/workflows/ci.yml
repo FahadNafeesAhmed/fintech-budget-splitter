@@ -45,6 +45,9 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Pinned for exact reproducibility — matches the verified local
+          # toolchain (Flutter 3.44.2 / Dart 3.12). Bump deliberately.
+          flutter-version: 3.44.2
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
