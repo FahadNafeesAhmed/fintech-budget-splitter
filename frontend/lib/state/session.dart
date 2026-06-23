@@ -68,10 +68,27 @@ class Session extends ChangeNotifier {
   }
 
   String _readable(Object e) {
+    // Prefer the SDK's typed exceptions (as the approved FocusStream sample
+    // does) instead of sniffing toString(), but keep the friendly remaps and
+    // the CORS hint the cohort review called out as the best login UX.
+
+    // Firebase Identity Toolkit auth failures — remap the common codes.
+    if (e is DartStreamFirebaseAuthException) {
+      final detail = '${e.code ?? ''} ${e.message}';
+      final friendly = _friendlyAuthCode(detail);
+      return friendly ?? e.message;
+    }
+
+    // DartStream service (ds-*) HTTP errors — surface status + body.
+    if (e is DartStreamApiException) {
+      final friendly = _friendlyAuthCode(e.body);
+      return friendly ?? 'DartStream error (${e.statusCode}): ${e.body}';
+    }
+
+    // Browser-side network failure (most often a CORS rejection from the
+    // DartStream dev backend, which only whitelists http://localhost:8080).
+    // This surfaces as a generic ClientException, not a typed SDK error.
     final s = e.toString();
-    // Browser-side network failure (most often CORS rejection from the
-    // DartStream backend, which only whitelists http://localhost:8080 on
-    // dev). Identity Toolkit calls succeed; the ds-auth POST is blocked.
     if (s.contains('ClientException') &&
         (s.contains('Failed to fetch') ||
             s.contains('NetworkError') ||
@@ -81,24 +98,35 @@ class Session extends ChangeNotifier {
           'run with `flutter run -d chrome --web-port=8080`, or ask the '
           'DartStream team to whitelist this origin.';
     }
-    if (s.contains('EMAIL_EXISTS')) {
+
+    var str = s;
+    if (str.startsWith('Exception: ')) {
+      str = str.replaceFirst('Exception: ', '');
+    }
+    return str;
+  }
+
+  /// Maps known Identity Toolkit error codes to friendly copy.
+  /// Returns null when nothing matches so the caller can fall back.
+  String? _friendlyAuthCode(String detail) {
+    if (detail.contains('EMAIL_EXISTS')) {
       return 'An account with that email already exists — switch to Sign In.';
     }
-    if (s.contains('EMAIL_NOT_FOUND') ||
-        s.contains('INVALID_LOGIN_CREDENTIALS') ||
-        s.contains('INVALID_PASSWORD')) {
+    if (detail.contains('EMAIL_NOT_FOUND') ||
+        detail.contains('INVALID_LOGIN_CREDENTIALS') ||
+        detail.contains('INVALID_PASSWORD')) {
       return 'Invalid email or password.';
     }
-    if (s.contains('WEAK_PASSWORD')) {
+    if (detail.contains('WEAK_PASSWORD')) {
       return 'Password is too weak — use at least 6 characters.';
     }
-    if (s.contains('INVALID_EMAIL')) {
+    if (detail.contains('INVALID_EMAIL')) {
       return 'That email address is not valid.';
     }
-    if (s.contains('TOO_MANY_ATTEMPTS')) {
+    if (detail.contains('TOO_MANY_ATTEMPTS')) {
       return 'Too many attempts — please wait a moment and try again.';
     }
-    return s;
+    return null;
   }
 
   void signOut() {

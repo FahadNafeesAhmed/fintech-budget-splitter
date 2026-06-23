@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_models/shared_models.dart';
 
-import '../config.dart';
+import '../services/cloud_save_service.dart';
 import '../state/session.dart';
 
 /// Main budget splitter screen.
@@ -89,12 +89,10 @@ class _HomeScreenState extends State<HomeScreen>
       setState(() => _state = _Success(result));
 
       // DartStream: append to cloud-save history + log reactive event.
-      // Cloud-save snapshots are single-slot last-write-wins, so we
-      // read-modify-write the full history list back into the slot.
       final client = widget.session.client;
       final dsSession = widget.session.dsSession;
       if (client != null && dsSession != null) {
-        const scope = DartStreamScope(projectId: AppConfig.projectId);
+        final cloudSave = CloudSaveService(client, dsSession);
         final entry = <String, dynamic>{
           'total_amount': transaction.totalAmount,
           'number_of_people': transaction.numberOfPeople,
@@ -106,21 +104,9 @@ class _HomeScreenState extends State<HomeScreen>
         setState(() => _eventLog.insert(0, _DsEvent('ds-experience', 'Read-modify-write → split_history')));
         () async {
           try {
-            final snapshot = await client.experience.loadCloudSave(
-              dsSession,
-              scope: scope,
-              slotKey: 'split_history',
-            );
-            final existing = _extractItems(snapshot);
-            existing.insert(0, entry);
-            await client.experience.saveCloudSave(
-              dsSession,
-              scope: scope,
-              slotKey: 'split_history',
-              payload: {'items': existing},
-            );
+            final count = await cloudSave.appendSplit(entry);
             if (!mounted) return;
-            setState(() => _eventLog.insert(0, _DsEvent('ds-experience', 'Saved ✓ (${existing.length} entries)', success: true)));
+            setState(() => _eventLog.insert(0, _DsEvent('ds-experience', 'Saved ✓ ($count entries)', success: true)));
           } catch (e) {
             if (!mounted) return;
             setState(() => _eventLog.insert(0, _DsEvent('ds-experience', _errorLine(e), warning: true)));
@@ -573,16 +559,6 @@ class _HomeScreenState extends State<HomeScreen>
 
   /// Reads the history list from a `loadCloudSave` snapshot. Cloud-save
   /// stores a single Map; we wrap the history under `items` on write.
-  List<Map<String, dynamic>> _extractItems(Map<String, dynamic>? snapshot) {
-    if (snapshot == null) return <Map<String, dynamic>>[];
-    final payload = snapshot['payload'] ?? snapshot;
-    final items = (payload is Map ? payload['items'] : null);
-    if (items is List) {
-      return items.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
-    }
-    return <Map<String, dynamic>>[];
-  }
-
   /// Surfaces the real failure (status code + body or exception message)
   /// instead of a vague "dev env" warning, so demo bugs aren't hidden.
   String _errorLine(Object e) {
