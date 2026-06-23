@@ -160,15 +160,17 @@ The app is a single Flutter web client that talks to DartStream SaaS via the
 ```bash
 cd frontend
 flutter pub get
-flutter run -d chrome --web-port=8080 --dart-define=FIREBASE_API_KEY=<your_web_api_key>
+flutter run -d chrome --web-port=3000 --dart-define=FIREBASE_API_KEY=<your_web_api_key>
 ```
 
-> ⚠️ **The port matters.** The DartStream dev backend's CORS allowlist
-> currently includes only `http://localhost:8080`. From any other origin
-> (including Firebase Hosting) the browser blocks the ds-auth call and the
-> login button surfaces *"Could not reach DartStream (CORS or network)"*.
-> Always launch with `--web-port=8080` locally, and ask the DartStream team
-> to whitelist your deployed origin before relying on the hosted demo.
+> ⚠️ **The port matters.** The Firebase web API key is HTTP-referrer-restricted
+> in Google Cloud, and `http://localhost:3000` is the allowlisted dev origin
+> (this matches the approved FocusStream reference sample). From any other
+> origin — including a deployed `*.web.app` host — the browser blocks the
+> ds-auth call and the login button surfaces *"Could not reach DartStream
+> (CORS or network)"*. Always launch with `--web-port=3000` locally; for a
+> hosted demo, the deployed origin must be whitelisted by the DartStream team
+> (typically by deploying under the official sample-apps project).
 
 **The Firebase web API key is not committed.** Pass it at run/build time with
 `--dart-define=FIREBASE_API_KEY=<your_web_api_key>`. When the app is served

@@ -85,18 +85,20 @@ class Session extends ChangeNotifier {
       return friendly ?? 'DartStream error (${e.statusCode}): ${e.body}';
     }
 
-    // Browser-side network failure (most often a CORS rejection from the
-    // DartStream dev backend, which only whitelists http://localhost:8080).
-    // This surfaces as a generic ClientException, not a typed SDK error.
+    // Browser-side network failure: either the Firebase web key is
+    // HTTP-referrer-restricted to http://localhost:3000 (the allowlisted dev
+    // origin), or the DartStream backend hasn't whitelisted this origin (e.g.
+    // a deployed *.web.app host). Surfaces as a generic ClientException.
     final s = e.toString();
     if (s.contains('ClientException') &&
         (s.contains('Failed to fetch') ||
             s.contains('NetworkError') ||
             s.contains('XMLHttpRequest'))) {
       return 'Could not reach DartStream (CORS or network). '
-          'The dev backend only allows http://localhost:8080; '
-          'run with `flutter run -d chrome --web-port=8080`, or ask the '
-          'DartStream team to whitelist this origin.';
+          'Run locally on the allowlisted origin: '
+          '`flutter run -d chrome --web-port=3000`. '
+          'For a deployed host, ask the DartStream team to whitelist its '
+          'origin.';
     }
 
     var str = s;
