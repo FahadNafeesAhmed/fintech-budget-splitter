@@ -68,9 +68,8 @@ class Session extends ChangeNotifier {
   }
 
   String _readable(Object e) {
-    // Prefer the SDK's typed exceptions (as the approved FocusStream sample
-    // does) instead of sniffing toString(), but keep the friendly remaps and
-    // the CORS hint the cohort review called out as the best login UX.
+    // Prefer the SDK's typed exceptions instead of sniffing toString(), but
+    // keep the friendly remaps and the CORS hint for the best login UX.
 
     // Firebase Identity Toolkit auth failures — remap the common codes.
     if (e is DartStreamFirebaseAuthException) {

@@ -164,9 +164,8 @@ flutter run -d chrome --web-port=3000 --dart-define=FIREBASE_API_KEY=<your_web_a
 ```
 
 > ⚠️ **The port matters.** The Firebase web API key is HTTP-referrer-restricted
-> in Google Cloud, and `http://localhost:3000` is the allowlisted dev origin
-> (this matches the approved FocusStream reference sample). From any other
-> origin — including a deployed `*.web.app` host — the browser blocks the
+> in Google Cloud, and `http://localhost:3000` is the allowlisted dev origin.
+> From any other origin — including a deployed `*.web.app` host — the browser blocks the
 > ds-auth call and the login button surfaces *"Could not reach DartStream
 > (CORS or network)"*. Always launch with `--web-port=3000` locally; for a
 > hosted demo, the deployed origin must be whitelisted by the DartStream team

@@ -2,9 +2,7 @@ import 'package:dartstream_client/dartstream_client.dart';
 
 import '../config.dart';
 
-/// Encapsulates the DartStream cloud-save integration for split history,
-/// following the structure of the approved FocusStream sample's
-/// `CloudSaveService`.
+/// Encapsulates the DartStream cloud-save integration for split history.
 ///
 /// Cloud-save snapshots are a single-slot, last-write-wins store, so a running
 /// history is kept by read-modify-writing the whole list back into the slot.
