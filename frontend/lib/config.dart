@@ -1,4 +1,4 @@
-/// App config for the FinTech Budget Splitter.
+/// App config for the Coin Catcher DartStream sample app.
 ///
 /// Service hosts (ds-auth / ds-platform / ds-experience / ds-reactive /
 /// ds-persistence) are no longer hard-coded here — `dartstream_client`
@@ -24,7 +24,7 @@ class AppConfig {
   /// Whether a key was actually injected; the login flow surfaces this.
   static bool get hasFirebaseApiKey => firebaseApiKey.isNotEmpty;
 
-  /// FinTech app project scoping for the DartStream experience layer.
+  /// Project scoping for the DartStream experience layer.
   /// Note: the SDK is configured for `DartStreamConfig.dev()` in session.dart,
   /// so the environment label here must match (dev hosts → `development`).
   static const projectId = 'fintech-budget-splitter';

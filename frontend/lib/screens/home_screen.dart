@@ -388,12 +388,13 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ],
           ),
-          child: const Icon(Icons.account_balance_wallet_rounded,
-              color: Colors.white, size: 32),
+          child: const Center(
+            child: Text('🪙', style: TextStyle(fontSize: 34)),
+          ),
         ),
         const SizedBox(height: 20),
         Text(
-          'Budget Splitter',
+          'Coin Catcher',
           style: GoogleFonts.inter(
             fontSize: 32,
             fontWeight: FontWeight.w800,
@@ -403,7 +404,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         const SizedBox(height: 8),
         Text(
-          'Split any bill instantly',
+          'Powered by DartStream',
           style: GoogleFonts.inter(
             fontSize: 16,
             color: Colors.white.withValues(alpha: 0.5),
