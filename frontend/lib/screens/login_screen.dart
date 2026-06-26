@@ -267,15 +267,13 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ],
           ),
-          child: const Icon(
-            Icons.account_balance_wallet_rounded,
-            color: Colors.white,
-            size: 32,
+          child: const Center(
+            child: Text('🪙', style: TextStyle(fontSize: 34)),
           ),
         ),
         const SizedBox(height: 20),
         Text(
-          'Budget Splitter',
+          'Coin Catcher',
           style: GoogleFonts.inter(
             fontSize: 32,
             fontWeight: FontWeight.w800,
@@ -285,7 +283,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Powered by DartStream',
+          'Catch the coins · Powered by DartStream',
           style: GoogleFonts.inter(
             fontSize: 14,
             color: const Color(0xFF4F8EF7).withValues(alpha: 0.8),

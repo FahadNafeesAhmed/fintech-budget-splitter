@@ -44,7 +44,7 @@ class _BudgetSplitterAppState extends State<BudgetSplitterApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Budget Splitter — DartStream',
+      title: 'Coin Catcher — DartStream',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(useMaterial3: true),
       home: _session.isSignedIn
