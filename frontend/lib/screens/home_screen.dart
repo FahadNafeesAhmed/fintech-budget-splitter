@@ -247,7 +247,9 @@ class _HomeScreenState extends State<HomeScreen>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         _header(),
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 32),
+                        _gameHeroCard(),
+                        const SizedBox(height: 32),
                         _glassCard(
                           child: Form(
                             key: _formKey,
@@ -306,8 +308,6 @@ class _HomeScreenState extends State<HomeScreen>
                         ),
                         const SizedBox(height: 32),
                         if (_state is _Success) _resultPanel(_state as _Success),
-                        const SizedBox(height: 24),
-                        _playGameButton(),
                         const SizedBox(height: 32),
                         _dartstreamPanel(),
                       ],
@@ -620,7 +620,9 @@ class _HomeScreenState extends State<HomeScreen>
     return e.toString();
   }
 
-  Widget _playGameButton() {
+  Widget _gameHeroCard() {
+    final flagsOn = _enabledFlags.contains('double_score') ||
+        _enabledFlags.contains('hard_mode');
     return GestureDetector(
       onTap: () {
         Navigator.of(context).push(MaterialPageRoute(
@@ -632,26 +634,105 @@ class _HomeScreenState extends State<HomeScreen>
         ));
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-          color: Colors.white.withValues(alpha: 0.05),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('🪙', style: TextStyle(fontSize: 20)),
-            const SizedBox(width: 10),
-            Text(
-              'Play Coin Catcher',
-              style: GoogleFonts.inter(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
+          borderRadius: BorderRadius.circular(24),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF4F8EF7), Color(0xFF7C3AED)],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4F8EF7).withValues(alpha: 0.35),
+              blurRadius: 28,
+              offset: const Offset(0, 10),
             ),
           ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text('🪙', style: TextStyle(fontSize: 30)),
+                const SizedBox(width: 10),
+                Text(
+                  'Coin Catcher',
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.play_arrow_rounded,
+                          color: Colors.white, size: 18),
+                      const SizedBox(width: 2),
+                      Text(
+                        'Play',
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Catch falling coins, beat your high score — gameplay is '
+              'driven live by DartStream feature flags, cloud-save, and '
+              'reactive events.',
+              style: GoogleFonts.inter(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+            if (flagsOn) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 6,
+                children: [
+                  if (_enabledFlags.contains('double_score'))
+                    _heroFlagChip('double_score'),
+                  if (_enabledFlags.contains('hard_mode'))
+                    _heroFlagChip('hard_mode'),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _heroFlagChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '⚡ $label',
+        style: GoogleFonts.inter(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
