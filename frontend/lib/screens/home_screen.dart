@@ -12,9 +12,11 @@ import '../state/session.dart';
 /// Main budget splitter screen.
 ///
 /// DartStream integration:
+///   - Fetches feature flags from DartStream platform service at startup.
+///   - Loads user profile from DartStream experience service.
 ///   - Saves every split to DartStream persistence (cloud-save slot: split_history).
 ///   - Logs `split_calculated` / `split_error` events to DartStream reactive pipeline.
-///   - Split math runs locally via shared_models BudgetCalculator (rounds to 2 dp).
+///   - Split math runs locally via shared_models BudgetCalculator.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.session});
   final Session session;
@@ -44,6 +46,11 @@ class _HomeScreenState extends State<HomeScreen>
   _SplitState _state = _Idle();
   final List<_DsEvent> _eventLog = [];
 
+  // Feature flags fetched from DartStream platform service at startup.
+  Set<String> _enabledFlags = {};
+  Map<String, dynamic>? _profile;
+  bool _bootstrapped = false;
+
   late final AnimationController _buttonAnim;
   late final Animation<double> _buttonScale;
 
@@ -57,6 +64,47 @@ class _HomeScreenState extends State<HomeScreen>
     _buttonScale = Tween<double>(begin: 1.0, end: 0.94).animate(
       CurvedAnimation(parent: _buttonAnim, curve: Curves.easeInOut),
     );
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    final client = widget.session.client;
+    final dsSession = widget.session.dsSession;
+    if (client == null || dsSession == null) return;
+
+    // Fetch feature flags + profile in parallel (same pattern as the
+    // founder's DartStream Dash sample app).
+    final results = await Future.wait([
+      client.platform.listFeatureFlags(dsSession).catchError((_) => <dynamic>[]),
+      client.experience.profile(dsSession).catchError((_) => <String, dynamic>{}),
+    ]);
+
+    final flags = results[0] as List<dynamic>;
+    final profile = results[1] as Map<String, dynamic>;
+
+    final enabled = <String>{};
+    for (final flag in flags) {
+      if (flag is Map) {
+        final key = flag['key'] ?? flag['name'] ?? '';
+        final isEnabled = flag['enabled'] == true || flag['status'] == 'active';
+        if (isEnabled && key is String && key.isNotEmpty) {
+          enabled.add(key);
+        }
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _enabledFlags = enabled;
+      _profile = profile;
+      _bootstrapped = true;
+      if (enabled.isNotEmpty) {
+        _eventLog.insert(0, _DsEvent('ds-platform', 'Flags loaded: ${enabled.join(", ")}', success: true));
+      } else {
+        _eventLog.insert(0, _DsEvent('ds-platform', 'No active flags', warning: true));
+      }
+      _eventLog.insert(0, _DsEvent('ds-experience', 'Profile loaded', success: true));
+    });
   }
 
   @override
@@ -296,7 +344,7 @@ class _HomeScreenState extends State<HomeScreen>
           ),
           const Spacer(),
           Text(
-            widget.session.email ?? '',
+            _profile?['displayName'] as String? ?? widget.session.email ?? '',
             style: GoogleFonts.inter(
               color: Colors.white.withValues(alpha: 0.4),
               fontSize: 12,
@@ -646,6 +694,77 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ],
           ),
+          if (_profile != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Text(
+                  'Profile: ',
+                  style: GoogleFonts.inter(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    fontSize: 11,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    _profile!['email'] as String? ??
+                        _profile!['displayName'] as String? ??
+                        widget.session.email ??
+                        '—',
+                    style: GoogleFonts.inter(
+                      color: Colors.white.withValues(alpha: 0.45),
+                      fontSize: 11,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (_bootstrapped) ...[
+            const SizedBox(height: 8),
+            Text(
+              'FEATURE FLAGS',
+              style: GoogleFonts.inter(
+                color: Colors.white.withValues(alpha: 0.3),
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (_enabledFlags.isEmpty)
+              Text(
+                'No active flags',
+                style: GoogleFonts.inter(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  fontSize: 11,
+                ),
+              )
+            else
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: _enabledFlags.map((flag) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00E676).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: const Color(0xFF00E676).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    flag,
+                    style: GoogleFonts.inter(
+                      color: const Color(0xFF00E676),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                )).toList(),
+              ),
+          ],
         ],
       ),
     );

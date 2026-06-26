@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "sample-app-fahad-ahmed",
     "public": "build/web",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
