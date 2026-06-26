@@ -1,4 +1,4 @@
-# FinTech Budget Splitter
+# Coin Catcher — a DartStream Sample App
 
 ![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?style=flat&logo=dart&logoColor=white)
 ![Flutter](https://img.shields.io/badge/Flutter-Web-02569B?style=flat&logo=flutter&logoColor=white)
@@ -7,25 +7,33 @@
 ![Melos](https://img.shields.io/badge/Melos-Monorepo-6A1B9A?style=flat)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat)
 
-> A full-stack Dart monorepo demonstrating DartStream's authentication, persistence, reactive event, and platform feature-flag services — built as a sandbox for AI-assisted QA and debugging with DartCodeAI.
+> A full-stack Dart sample app showcasing **DartStream** — a playable arcade game
+> plus a budget splitter, both driven live by DartStream's authentication,
+> feature-flag, persistence, and reactive-event services. Also a sandbox for
+> AI-assisted QA and debugging with DartCodeAI.
 
-**Live Demo →** https://fintech-budget-splitter.web.app
+**Live Demo →** https://sample-app-fahad-ahmed.web.app
 
 ---
 
 ## What It Does
 
-A real-time bill splitter. Enter a total amount and number of people — the app instantly calculates each person's share, saves the result to DartStream's persistence layer, and logs the event to DartStream's reactive pipeline.
+The headline is **Coin Catcher** — a playable game wired end-to-end to live
+DartStream services (not decoupled UI):
 
-It also ships a playable game — **Coin Catcher** — wired to the same live
-DartStream services, as the headline showcase:
-
-- **Flag-gated gameplay** — the `double_score` and `hard_mode` feature flags
-  (read from the platform service) change coin value and fall speed.
+- 🪙 **Tap the falling coins** before they drop; 3 misses and it's game over.
+- **Flag-gated gameplay** — the `double_score` (2× points) and `hard_mode`
+  (faster coins) feature flags, read from the platform service, change real
+  mechanics.
 - **Cloud-save progress** — the high score persists to a single cloud-save
   snapshot (slot `game_state`, last-write-wins).
-- **Reactive event logging** — `game_started` and `game_over` events fire to
-  the reactive pipeline on real gameplay.
+- **Reactive event logging** — `game_started` / `game_over` events fire to the
+  reactive pipeline on real gameplay.
+
+It also ships a **budget splitter** as a second feature: enter a total and a
+number of people, and it calculates each share, saves it to DartStream
+persistence, and logs the event — demonstrating the same services from a
+different surface.
 
 ## Authentication & OAuth grants
 
@@ -111,12 +119,18 @@ fintech-budget-splitter/
 │   │   ├── config.dart             # FIREBASE_API_KEY + projectId/environmentId
 │   │   ├── state/
 │   │   │   └── session.dart        # DartStreamClient.signIn / signUp wrapper
+│   │   ├── game/
+│   │   │   └── coin_catcher.dart   # the playable game (flag-gated, cloud-save, events)
+│   │   ├── services/
+│   │   │   ├── game_service.dart   # game cloud-save (high score) + reactive events
+│   │   │   └── cloud_save_service.dart  # split history cloud-save
 │   │   ├── screens/
-│   │   │   ├── login_screen.dart   # Sign In / Create Account
-│   │   │   └── home_screen.dart    # Calculator + experience/reactive integration
+│   │   │   ├── login_screen.dart   # Sign In / Create Account (Coin Catcher themed)
+│   │   │   └── home_screen.dart    # game hero + splitter + DartStream engine panel
 │   │   └── main.dart               # Session-driven routing
 │   ├── test/
-│   │   └── math_test.dart          # BudgetCalculator unit tests
+│   │   ├── math_test.dart          # BudgetCalculator unit tests
+│   │   └── game_service_test.dart  # MockClient-injected contract tests
 │   └── pubspec.yaml
 └── melos.yaml                      # Monorepo workspace
 ```
@@ -221,11 +235,11 @@ flutter test
 
 ```bash
 cd frontend
-flutter build web --release
+flutter build web --release --dart-define=FIREBASE_API_KEY=<your_web_api_key>
 npx firebase-tools deploy --only hosting
 ```
 
-**Live:** https://fintech-budget-splitter.web.app
+**Live:** https://sample-app-fahad-ahmed.web.app
 
 ---
 
