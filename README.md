@@ -17,6 +17,32 @@
 
 A real-time bill splitter. Enter a total amount and number of people — the app instantly calculates each person's share, saves the result to DartStream's persistence layer, and logs the event to DartStream's reactive pipeline.
 
+It also ships a playable game — **Coin Catcher** — wired to the same live
+DartStream services, as the headline showcase:
+
+- **Flag-gated gameplay** — the `double_score` and `hard_mode` feature flags
+  (read from the platform service) change coin value and fall speed.
+- **Cloud-save progress** — the high score persists to a single cloud-save
+  snapshot (slot `game_state`, last-write-wins).
+- **Reactive event logging** — `game_started` and `game_over` events fire to
+  the reactive pipeline on real gameplay.
+
+## Authentication & OAuth grants
+
+This sample uses **two** DartStream auth paths, deliberately:
+
+- **User session (the app):** the Flutter web client signs in with email/
+  password via `DartStreamClient.signIn` / `signUp` (Firebase Identity Toolkit
+  → `ds-auth` onboarding), against the `DartStreamConfig.dev()` backend. This is
+  the grant wired to all in-app service calls (platform, experience, reactive).
+- **OAuth2 client-credentials (server-to-server probe):** `bin/oauth2_deepdive.dart`
+  exchanges a `client_id` + `client_secret` for a DartStream-signed Bearer JWT
+  (`grant_type=client_credentials`) and calls the services with no interactive
+  user — the machine-to-machine path from ticket #96. Credentials come from
+  `OAUTH2_CLIENT_ID` / `OAUTH2_CLIENT_SECRET` env vars and are **never
+  committed**. A `clientSecret` is server-only — never embedded in the browser
+  bundle.
+
 ---
 
 ## DartStream Architecture

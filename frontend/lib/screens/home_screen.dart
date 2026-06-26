@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_models/shared_models.dart';
 
+import '../game/coin_catcher.dart';
 import '../services/cloud_save_service.dart';
 import '../state/session.dart';
 
@@ -305,6 +306,8 @@ class _HomeScreenState extends State<HomeScreen>
                         ),
                         const SizedBox(height: 32),
                         if (_state is _Success) _resultPanel(_state as _Success),
+                        const SizedBox(height: 24),
+                        _playGameButton(),
                         const SizedBox(height: 32),
                         _dartstreamPanel(),
                       ],
@@ -615,6 +618,43 @@ class _HomeScreenState extends State<HomeScreen>
       return 'HTTP ${e.statusCode}: $body';
     }
     return e.toString();
+  }
+
+  Widget _playGameButton() {
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => CoinCatcherGame(
+            session: widget.session,
+            doubleScore: _enabledFlags.contains('double_score'),
+            hardMode: _enabledFlags.contains('hard_mode'),
+          ),
+        ));
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+          color: Colors.white.withValues(alpha: 0.05),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('🪙', style: TextStyle(fontSize: 20)),
+            const SizedBox(width: 10),
+            Text(
+              'Play Coin Catcher',
+              style: GoogleFonts.inter(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _dartstreamPanel() {
