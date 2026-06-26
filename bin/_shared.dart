@@ -44,11 +44,12 @@ class Env {
       opt('PROJECT_ID', 'fintech-budget-splitter'),
       opt('ENVIRONMENT_ID', 'development'),
       ServiceHosts(
-        auth: opt('API_AUTH', 'https://dev-api-auth.dartstream.io'),
-        platform: opt('API_PLATFORM', 'https://dev-api-platform.dartstream.io'),
-        experience: opt('API_EXPERIENCE', 'https://dev-api-experience.dartstream.io'),
-        reactive: opt('API_REACTIVE', 'https://dev-api-reactive.dartstream.io'),
-        persistence: opt('API_PERSISTENCE', 'https://dev-api-persistence.dartstream.io'),
+        auth: opt('API_AUTH', 'https://dev-apiauth.dartstream.io'),
+        platform: opt('API_PLATFORM', 'https://dev-apiplatform.dartstream.io'),
+        experience: opt('API_EXPERIENCE', 'https://dev-apiexperience.dartstream.io'),
+        reactive: opt('API_REACTIVE', 'https://dev-apireactive.dartstream.io'),
+        persistence: opt('API_PERSISTENCE', 'https://dev-apipersistence.dartstream.io'),
+        billing: opt('API_BILLING', 'https://dev-apibilling.dartstream.io'),
       ),
     );
   }
@@ -61,12 +62,16 @@ class ServiceHosts {
     required this.experience,
     required this.reactive,
     required this.persistence,
+    required this.billing,
   });
   final String auth;
   final String platform;
   final String experience;
   final String reactive;
   final String persistence;
+
+  /// Host that mounts the OAuth2 token endpoint (ds-billing).
+  final String billing;
 }
 
 /// Sign in (auto-signup on first run) with Firebase Identity Toolkit and

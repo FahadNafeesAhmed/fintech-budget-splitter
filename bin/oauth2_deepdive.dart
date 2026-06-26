@@ -40,8 +40,9 @@ Future<void> main() async {
     'POST /api/v1/oauth2/token (client_credentials)',
     () async {
       final credentials = base64Encode(utf8.encode('$clientId:$clientSecret'));
+      // The OAuth2 token endpoint is mounted on the ds-billing host.
       final res = await http.post(
-        Uri.parse('${h.auth}/api/v1/oauth2/token'),
+        Uri.parse('${h.billing}/api/v1/oauth2/token'),
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Authorization': 'Basic $credentials',
@@ -90,11 +91,13 @@ Future<void> main() async {
     ),
   );
 
+  // A client-credentials token has no user context, so use the non-user
+  // capabilities endpoint (not profiles/me) to verify experience accepts it.
   await report.step(
     'experience',
-    'GET /api/v1/experience/profiles/me (OAuth2 token)',
+    'GET /api/v1/experience/profiles/capabilities (OAuth2 token)',
     () => http.get(
-      Uri.parse('${h.experience}/api/v1/experience/profiles/me'),
+      Uri.parse('${h.experience}/api/v1/experience/profiles/capabilities'),
       headers: oauthHeaders,
     ),
   );
