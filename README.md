@@ -73,13 +73,13 @@ This project follows the [DartStream](https://github.com/aortem/dartstream) open
           ▼             ▼             ▼
      ds-auth       ds-experience   ds-reactive
    (sign in/up,   (cloud-save     (event log:
-    user/tenant)   split_history)  split_calculated,
-                                   split_error)
+    user/tenant)   game_state +    game_started,
+                   profile)        game_over)
 ```
 
-> `ds-platform` (feature flags / projects) is not consumed by the calculator;
-> it is exercised independently by `bin/platform_deepdive.dart` as a contract
-> probe.
+> `ds-platform` feature flags (`double_score`, `hard_mode`) are read at
+> startup and gate the game's behavior; the surface is also exercised by
+> `bin/platform_deepdive.dart` as a contract probe.
 
 ### Auth Flow (DartStream Pattern)
 
@@ -101,19 +101,14 @@ fintech-budget-splitter/
 │   ├── smoke.dart                  # one representative contract per service
 │   ├── auth_deepdive.dart          # full ds-auth surface
 │   ├── platform_deepdive.dart      # feature-flags, projects, api-keys, team, …
-│   ├── experience_deepdive.dart    # profiles, cloud-save (split_history), inventory
+│   ├── experience_deepdive.dart    # profiles, cloud-save, inventory
 │   ├── reactive_deepdive.dart      # events, streaming channels, notifications
-│   └── persistence_deepdive.dart   # database, storage, logging
+│   ├── persistence_deepdive.dart   # database, storage, logging
+│   └── oauth2_deepdive.dart        # client-credentials token → service calls
 ├── .env.example                    # config template — copy to .env (gitignored)
 ├── pubspec.yaml                    # deps for the bin/ CLIs (http only)
-├── .github/workflows/ci.yml        # analyze bin + shared_models, build frontend
-├── packages/
-│   └── shared_models/              # Shared Dart logic (DTOs + BudgetCalculator)
-│       ├── lib/src/
-│       │   ├── transaction_model.dart
-│       │   └── budget_calculator.dart
-│       └── pubspec.yaml
-├── frontend/                       # Flutter web app (the customer reference,
+├── .github/workflows/ci.yml        # analyze bin, analyze+test+build frontend
+├── frontend/                       # Flutter web game (the customer reference,
 │   │                                 consumes the dartstream_client SDK)
 │   ├── lib/
 │   │   ├── config.dart             # FIREBASE_API_KEY + projectId/environmentId
@@ -122,17 +117,15 @@ fintech-budget-splitter/
 │   │   ├── game/
 │   │   │   └── coin_catcher.dart   # the playable game (flag-gated, cloud-save, events)
 │   │   ├── services/
-│   │   │   ├── game_service.dart   # game cloud-save (high score) + reactive events
-│   │   │   └── cloud_save_service.dart  # split history cloud-save
+│   │   │   └── game_service.dart   # game cloud-save (high score) + reactive events
 │   │   ├── screens/
 │   │   │   ├── login_screen.dart   # Sign In / Create Account (Coin Catcher themed)
-│   │   │   └── home_screen.dart    # game hero + splitter + DartStream engine panel
+│   │   │   └── home_screen.dart    # game hero + DartStream engine panel
 │   │   └── main.dart               # Session-driven routing
 │   ├── test/
-│   │   ├── math_test.dart          # BudgetCalculator unit tests
 │   │   └── game_service_test.dart  # MockClient-injected contract tests
 │   └── pubspec.yaml
-└── melos.yaml                      # Monorepo workspace
+└── melos.yaml                      # workspace
 ```
 
 The split mirrors the DartStream founder sample app: `frontend/` is the **customer reference** that consumes the first-party `dartstream_client` SDK exactly as a real client would, while `bin/` is a set of **low-level contract probes** that hand-write Firebase REST + raw `Authorization`/`X-Tenant-ID` headers with `package:http` so they verify the deployed HTTP contracts independently of the SDK. Don't copy `bin/` into an app.
@@ -148,9 +141,10 @@ dart pub get
 dart run bin/smoke.dart                 # 10-endpoint health check across all 5 services
 dart run bin/auth_deepdive.dart         # full ds-auth surface (PASS/FAIL/SKIP table)
 dart run bin/platform_deepdive.dart     # feature-flags, projects, api-keys, team
-dart run bin/experience_deepdive.dart   # profiles, cloud-save (split_history), inventory
+dart run bin/experience_deepdive.dart   # profiles, cloud-save, inventory
 dart run bin/reactive_deepdive.dart     # events, streaming, notifications
 dart run bin/persistence_deepdive.dart  # database, storage, logging
+dart run bin/oauth2_deepdive.dart       # OAuth2 client-credentials (needs OAUTH2_CLIENT_ID/SECRET)
 ```
 
 Destructive endpoints (DELETE user, revoke-all-sessions, invitation emails, member-role changes) are skipped by default. Re-run with `DEEPDIVE_DESTRUCTIVE=1` to include them.
@@ -168,9 +162,9 @@ for reference only — no host strings are hard-coded in this app.
 | Service | Used via | Usage in this sample |
 |---------|---------|----------------------|
 | `ds-auth` | `client.auth` (one-call `signIn` / `signUp`) | Sign-up, sign-in, user/tenant resolution |
-| `ds-platform` | `client.platform` | Feature-flag / project surface exercised by `bin/platform_deepdive.dart` (not consumed by the calculator) |
-| `ds-experience` | `client.experience.loadCloudSave` / `saveCloudSave` | Cloud-save `split_history` slot (read-modify-write list pattern) |
-| `ds-reactive` | `client.reactive.logEvent` | `split_calculated` / `split_error` events |
+| `ds-platform` | `client.platform.listFeatureFlags` | Feature flags (`double_score`, `hard_mode`) that gate game behavior |
+| `ds-experience` | `client.experience.loadCloudSave` / `saveCloudSave` + `profile` | High-score cloud-save (slot `game_state`, single snapshot LWW) + user profile |
+| `ds-reactive` | `client.reactive.logEvent` | `game_started` / `game_over` events |
 
 ---
 
@@ -185,9 +179,8 @@ for reference only — no host strings are hard-coded in this app.
 | Persistence | DartStream cloud-save (experience service) |
 | Events | DartStream reactive event pipeline |
 | Feature Flags | DartStream platform service |
-| Shared Logic | Pure Dart package (`shared_models`) |
-| Testing | `flutter_test` |
-| Monorepo | Melos |
+| Game | Pure Flutter (`Ticker` + widgets — no game-engine dependency) |
+| Testing | `flutter_test` + `package:http` `MockClient` |
 | Deployment | Firebase Hosting |
 
 ---

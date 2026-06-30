@@ -1,8 +1,7 @@
-name: fintech_budget_splitter
-repository: https://github.com/your-org/fintech-budget-splitter
+name: coin_catcher
+repository: https://github.com/FahadNafeesAhmed/fintech-budget-splitter
 
 packages:
-  - packages/**
   - frontend
 
 command:

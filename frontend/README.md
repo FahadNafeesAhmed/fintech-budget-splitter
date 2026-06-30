@@ -5,13 +5,13 @@ Flutter web app wired to DartStream SaaS via the public
 
 ## Features
 
-- Glassmorphic card design with backdrop blur
+- **Coin Catcher** — a playable game wired to live DartStream services
 - Email/password sign-in via the DartStream SDK's one-call `signIn` / `signUp`
   (Identity Toolkit REST under the hood — no FlutterFire on the client)
 - `Session` `ChangeNotifier` (no Riverpod, no `firebase_core` init)
-- Cloud-save history via `client.experience` (read-modify-write list pattern)
-- Reactive event logging via `client.reactive`
-- Real `HTTP <code>: <body>` surfaced on save/event failures (no hidden errors)
+- Feature flags gate gameplay; high score via cloud-save; `game_started` /
+  `game_over` via reactive event logging
+- Glassmorphic UI with a live DartStream engine panel
 
 ## Key Files
 
@@ -20,9 +20,11 @@ Flutter web app wired to DartStream SaaS via the public
 | `lib/main.dart` | App entry; session-driven routing |
 | `lib/config.dart` | `FIREBASE_API_KEY` (`--dart-define`), `projectId`, `environmentId` |
 | `lib/state/session.dart` | `DartStreamClient.signIn` / `signUp` wrapper |
+| `lib/game/coin_catcher.dart` | The playable game (flag-gated, cloud-save, events) |
+| `lib/services/game_service.dart` | Game cloud-save + reactive events |
 | `lib/screens/login_screen.dart` | Sign in / create account UI |
-| `lib/screens/home_screen.dart` | Calculator + cloud-save + reactive event log |
-| `test/math_test.dart` | Unit tests for `BudgetCalculator` |
+| `lib/screens/home_screen.dart` | Game hero + DartStream engine panel |
+| `test/game_service_test.dart` | MockClient-injected contract tests |
 
 ## Running
 

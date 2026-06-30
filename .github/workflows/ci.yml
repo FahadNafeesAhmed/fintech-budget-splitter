@@ -18,22 +18,6 @@ jobs:
       - run: dart pub get
       - run: dart analyze bin
 
-  shared-models:
-    name: shared_models — analyze
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/shared_models
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
-        with:
-          sdk: stable
-      - run: dart pub get
-      - run: dart analyze
-      # Tests for shared_models' BudgetCalculator live under frontend/test
-      # and run in the frontend job below — no test/ dir to invoke here.
-
   frontend:
     name: Flutter web — analyze + test + build
     runs-on: ubuntu-latest

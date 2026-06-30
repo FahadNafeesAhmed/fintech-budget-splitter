@@ -1,23 +1,19 @@
 import 'dart:ui';
 
-import 'package:dartstream_client/dartstream_client.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_models/shared_models.dart';
 
 import '../game/coin_catcher.dart';
-import '../services/cloud_save_service.dart';
 import '../state/session.dart';
 
-/// Main budget splitter screen.
+/// Coin Catcher dashboard.
 ///
 /// DartStream integration:
-///   - Fetches feature flags from DartStream platform service at startup.
-///   - Loads user profile from DartStream experience service.
-///   - Saves every split to DartStream persistence (cloud-save slot: split_history).
-///   - Logs `split_calculated` / `split_error` events to DartStream reactive pipeline.
-///   - Split math runs locally via shared_models BudgetCalculator.
+///   - Fetches feature flags from the DartStream platform service at startup
+///     (these gate the game's `double_score` / `hard_mode` behavior).
+///   - Loads the user profile from the DartStream experience service.
+///   - Launches the playable game, which saves the high score via cloud-save
+///     and logs `game_started` / `game_over` to the reactive pipeline.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.session});
   final Session session;
@@ -26,45 +22,17 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-sealed class _SplitState {}
-class _Idle extends _SplitState {}
-class _Loading extends _SplitState {}
-class _Success extends _SplitState {
-  _Success(this.result);
-  final SplitResult result;
-}
-class _Error extends _SplitState {
-  _Error(this.message);
-  final String message;
-}
-
-class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
-  final _amountController = TextEditingController();
-  final _peopleController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-
-  _SplitState _state = _Idle();
+class _HomeScreenState extends State<HomeScreen> {
   final List<_DsEvent> _eventLog = [];
 
-  // Feature flags fetched from DartStream platform service at startup.
+  // Feature flags fetched from the DartStream platform service at startup.
   Set<String> _enabledFlags = {};
   Map<String, dynamic>? _profile;
   bool _bootstrapped = false;
 
-  late final AnimationController _buttonAnim;
-  late final Animation<double> _buttonScale;
-
   @override
   void initState() {
     super.initState();
-    _buttonAnim = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 120),
-    );
-    _buttonScale = Tween<double>(begin: 1.0, end: 0.94).animate(
-      CurvedAnimation(parent: _buttonAnim, curve: Curves.easeInOut),
-    );
     _bootstrap();
   }
 
@@ -100,7 +68,8 @@ class _HomeScreenState extends State<HomeScreen>
       _profile = profile;
       _bootstrapped = true;
       if (enabled.isNotEmpty) {
-        _eventLog.insert(0, _DsEvent('ds-platform', 'Flags loaded: ${enabled.join(", ")}', success: true));
+        _eventLog.insert(0,
+            _DsEvent('ds-platform', 'Flags loaded: ${enabled.join(", ")}', success: true));
       } else {
         _eventLog.insert(0, _DsEvent('ds-platform', 'No active flags', warning: true));
       }
@@ -109,121 +78,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   @override
-  void dispose() {
-    _amountController.dispose();
-    _peopleController.dispose();
-    _buttonAnim.dispose();
-    super.dispose();
-  }
-
-  Future<void> _onCalculate() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    await _buttonAnim.forward();
-    await _buttonAnim.reverse();
-
-    setState(() => _state = _Loading());
-
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    try {
-      final total = double.parse(_amountController.text);
-      final people = int.parse(_peopleController.text);
-      final transaction = Transaction(
-        totalAmount: total,
-        numberOfPeople: people,
-      );
-
-      final result = BudgetCalculator.calculate(transaction);
-      setState(() => _state = _Success(result));
-
-      // DartStream: append to cloud-save history + log reactive event.
-      final client = widget.session.client;
-      final dsSession = widget.session.dsSession;
-      if (client != null && dsSession != null) {
-        final cloudSave = CloudSaveService(client, dsSession);
-        final entry = <String, dynamic>{
-          'total_amount': transaction.totalAmount,
-          'number_of_people': transaction.numberOfPeople,
-          'description': transaction.description,
-          'amount_per_person': result.amountPerPerson,
-          'calculated_at': DateTime.now().toIso8601String(),
-        };
-
-        setState(() => _eventLog.insert(0, _DsEvent('ds-experience', 'Read-modify-write → split_history')));
-        () async {
-          try {
-            final count = await cloudSave.appendSplit(entry);
-            if (!mounted) return;
-            setState(() => _eventLog.insert(0, _DsEvent('ds-experience', 'Saved ✓ ($count entries)', success: true)));
-          } catch (e) {
-            if (!mounted) return;
-            setState(() => _eventLog.insert(0, _DsEvent('ds-experience', _errorLine(e), warning: true)));
-          }
-        }();
-
-        setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', 'Logging split_calculated event')));
-        client.reactive.logEvent(
-          dsSession,
-          eventType: 'split_calculated',
-          payload: {
-            'total_amount': transaction.totalAmount,
-            'number_of_people': transaction.numberOfPeople,
-            'amount_per_person': result.amountPerPerson,
-            'description': transaction.description,
-          },
-        ).then((_) {
-          if (!mounted) return;
-          setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', 'Event logged ✓', success: true)));
-        }).catchError((e) {
-          if (!mounted) return;
-          setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', _errorLine(e), warning: true)));
-        });
-      }
-    } on ArgumentError catch (e) {
-      final msg = e.message.toString();
-      setState(() => _state = _Error(msg));
-      final client = widget.session.client;
-      final dsSession = widget.session.dsSession;
-      if (client != null && dsSession != null) {
-        setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', 'Logging split_error event')));
-        client.reactive.logEvent(
-          dsSession,
-          eventType: 'split_error',
-          payload: {'error': msg},
-        ).then((_) {
-          if (!mounted) return;
-          setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', 'split_error logged ✓', success: true)));
-        }).catchError((e) {
-          if (!mounted) return;
-          setState(() => _eventLog.insert(0, _DsEvent('ds-reactive', _errorLine(e), warning: true)));
-        });
-      }
-    } catch (_) {
-      setState(() => _state = _Error('Something went wrong. Please try again.'));
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (_state is _Error) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_state is _Error) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: const Color(0xFFE53935),
-              content: Text(
-                (_state as _Error).message,
-                style: GoogleFonts.inter(color: Colors.white),
-              ),
-            ),
-          );
-          setState(() => _state = _Idle());
-        }
-      });
-    }
-
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
@@ -249,65 +104,6 @@ class _HomeScreenState extends State<HomeScreen>
                         _header(),
                         const SizedBox(height: 32),
                         _gameHeroCard(),
-                        const SizedBox(height: 32),
-                        _glassCard(
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _inputField(
-                                  controller: _amountController,
-                                  label: 'Total Bill Amount',
-                                  prefix: '\$',
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                          decimal: true),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.allow(
-                                        RegExp(r'^\d+\.?\d{0,2}'))
-                                  ],
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty) {
-                                      return 'Enter a bill amount';
-                                    }
-                                    if (double.tryParse(v) == null) {
-                                      return 'Enter a valid number';
-                                    }
-                                    if (double.parse(v) <= 0) {
-                                      return 'Amount must be greater than zero';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 20),
-                                _inputField(
-                                  controller: _peopleController,
-                                  label: 'Number of People',
-                                  prefix: '#',
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly
-                                  ],
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty) {
-                                      return 'Enter number of people';
-                                    }
-                                    final n = int.tryParse(v);
-                                    if (n == null || n <= 0) {
-                                      return 'Must be at least 1 person';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 32),
-                                _calculateButton(),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        if (_state is _Success) _resultPanel(_state as _Success),
                         const SizedBox(height: 32),
                         _dartstreamPanel(),
                       ],
@@ -430,195 +226,6 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       ),
     );
-  }
-
-  Widget _inputField({
-    required TextEditingController controller,
-    required String label,
-    required String prefix,
-    required TextInputType keyboardType,
-    required FormFieldValidator<String> validator,
-    List<TextInputFormatter>? inputFormatters,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
-      validator: validator,
-      style: GoogleFonts.inter(color: Colors.white, fontSize: 16),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: GoogleFonts.inter(
-            color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
-        prefixText: '$prefix  ',
-        prefixStyle: GoogleFonts.inter(
-            color: const Color(0xFF4F8EF7),
-            fontWeight: FontWeight.w600,
-            fontSize: 16),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide:
-              const BorderSide(color: Color(0xFF4F8EF7), width: 1.5),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFE53935)),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide:
-              const BorderSide(color: Color(0xFFE53935), width: 1.5),
-        ),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.05),
-        errorStyle: GoogleFonts.inter(color: const Color(0xFFE57373)),
-      ),
-    );
-  }
-
-  Widget _calculateButton() {
-    final isLoading = _state is _Loading;
-    return ScaleTransition(
-      scale: _buttonScale,
-      child: GestureDetector(
-        onTap: isLoading ? null : _onCalculate,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          height: 56,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF4F8EF7), Color(0xFF7C3AED)],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF4F8EF7)
-                    .withValues(alpha: isLoading ? 0.2 : 0.4),
-                blurRadius: isLoading ? 8 : 20,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Center(
-            child: isLoading
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2.5,
-                    ),
-                  )
-                : Text(
-                    'Calculate',
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _resultPanel(_Success state) {
-    final result = state.result;
-    final amount = result.amountPerPerson.toStringAsFixed(2);
-
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeOutBack,
-      builder: (context, value, child) => Transform.scale(
-        scale: value,
-        child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
-      ),
-      child: _glassCard(
-        child: Column(
-          children: [
-            Text(
-              'Each person pays',
-              style: GoogleFonts.inter(
-                color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 14,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFF4F8EF7), Color(0xFF7C3AED)],
-              ).createShader(bounds),
-              child: Text(
-                '\$$amount',
-                style: GoogleFonts.inter(
-                  fontSize: _fontSize(amount.length),
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: -1,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '\$${result.totalAmount.toStringAsFixed(2)} ÷ ${result.numberOfPeople} people',
-              style: GoogleFonts.inter(
-                color: Colors.white.withValues(alpha: 0.4),
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 8),
-            // DartStream badge — shows data was logged to the reactive pipeline
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0xFF4F8EF7),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Logged to DartStream',
-                  style: GoogleFonts.inter(
-                    color: const Color(0xFF4F8EF7).withValues(alpha: 0.6),
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  double _fontSize(int charCount) {
-    if (charCount <= 5) return 56;
-    if (charCount <= 8) return 44;
-    return 34;
-  }
-
-  /// Reads the history list from a `loadCloudSave` snapshot. Cloud-save
-  /// stores a single Map; we wrap the history under `items` on write.
-  /// Surfaces the real failure (status code + body or exception message)
-  /// instead of a vague "dev env" warning, so demo bugs aren't hidden.
-  String _errorLine(Object e) {
-    if (e is DartStreamApiException) {
-      final body = e.body.length > 120 ? '${e.body.substring(0, 120)}…' : e.body;
-      return 'HTTP ${e.statusCode}: $body';
-    }
-    return e.toString();
   }
 
   Widget _gameHeroCard() {
@@ -774,7 +381,6 @@ class _HomeScreenState extends State<HomeScreen>
             ],
           ),
           const SizedBox(height: 16),
-          // Service status row
           Row(
             children: services
                 .map((s) => Expanded(child: _serviceChip(s)))
