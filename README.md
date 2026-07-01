@@ -104,9 +104,10 @@ fintech-budget-splitter/
 │   ├── experience_deepdive.dart    # profiles, cloud-save, inventory
 │   ├── reactive_deepdive.dart      # events, streaming channels, notifications
 │   ├── persistence_deepdive.dart   # database, storage, logging
-│   └── oauth2_deepdive.dart        # client-credentials token → service calls
+│   ├── oauth2_deepdive.dart        # client-credentials token → service calls
+│   └── intellitoggle_deepdive.dart # IntelliToggle feature-flag SaaS (OpenFeature)
 ├── .env.example                    # config template — copy to .env (gitignored)
-├── pubspec.yaml                    # deps for the bin/ CLIs (http only)
+├── pubspec.yaml                    # deps for the bin/ CLIs
 ├── .github/workflows/ci.yml        # analyze bin, analyze+test+build frontend
 ├── frontend/                       # Flutter web game (the customer reference,
 │   │                                 consumes the dartstream_client SDK)
@@ -145,6 +146,7 @@ dart run bin/experience_deepdive.dart   # profiles, cloud-save, inventory
 dart run bin/reactive_deepdive.dart     # events, streaming, notifications
 dart run bin/persistence_deepdive.dart  # database, storage, logging
 dart run bin/oauth2_deepdive.dart       # OAuth2 client-credentials (needs OAUTH2_CLIENT_ID/SECRET)
+dart run bin/intellitoggle_deepdive.dart # IntelliToggle OpenFeature flags (needs INTELLITOGGLE_* env vars)
 ```
 
 Destructive endpoints (DELETE user, revoke-all-sessions, invitation emails, member-role changes) are skipped by default. Re-run with `DEEPDIVE_DESTRUCTIVE=1` to include them.

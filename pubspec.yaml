@@ -8,3 +8,5 @@ environment:
 
 dependencies:
   http: ^1.2.2
+  openfeature_dart_server_sdk: ^0.0.22
+  openfeature_provider_intellitoggle: ^0.0.9
