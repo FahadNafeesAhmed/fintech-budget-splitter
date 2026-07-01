@@ -29,4 +29,22 @@ class AppConfig {
   /// so the environment label here must match (dev hosts → `development`).
   static const projectId = 'fintech-budget-splitter';
   static const environmentId = 'development';
+
+  // IntelliToggle OpenFeature credentials — injected at build time only.
+  // For a demo/sandbox tenant only; keep client-credentials server-side in prod.
+  static const intelliToggleClientId =
+      String.fromEnvironment('INTELLITOGGLE_CLIENT_ID');
+  static const intelliToggleClientSecret =
+      String.fromEnvironment('INTELLITOGGLE_CLIENT_SECRET');
+  static const intelliToggleTenantId =
+      String.fromEnvironment('INTELLITOGGLE_TENANT_ID');
+  static const intelliToggleApiUrl = String.fromEnvironment(
+    'INTELLITOGGLE_API_URL',
+    defaultValue: 'https://api.intellitoggle.com',
+  );
+
+  static bool get hasIntelliToggle =>
+      intelliToggleClientId.isNotEmpty &&
+      intelliToggleClientSecret.isNotEmpty &&
+      intelliToggleTenantId.isNotEmpty;
 }

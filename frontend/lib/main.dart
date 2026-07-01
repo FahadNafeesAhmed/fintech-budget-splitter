@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'bootstrap.dart';
-import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/shell_screen.dart';
 import 'state/session.dart';
+import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,9 +47,9 @@ class _BudgetSplitterAppState extends State<BudgetSplitterApp> {
     return MaterialApp(
       title: 'Coin Catcher — DartStream',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(useMaterial3: true),
+      theme: buildAppTheme(),
       home: _session.isSignedIn
-          ? HomeScreen(session: _session)
+          ? ShellScreen(session: _session)
           : LoginScreen(session: _session),
     );
   }
